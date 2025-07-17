@@ -98,7 +98,7 @@ public class WidgetWithText extends AbstractWidget {
         x = this.getX()+4;
         y += this.widget.getHeight()+2;
         for (FormattedCharSequence line : getDescriptionLines()) {
-            LatticeMultiversion.drawString(guiGraphics, this.font, line, x, y, 0xFFFFFFFF);
+            LatticeMultiversion.drawString(guiGraphics, this.font, line, x, y, 0xFFE0E0E0);
             y += this.font.lineHeight;
         }
     }

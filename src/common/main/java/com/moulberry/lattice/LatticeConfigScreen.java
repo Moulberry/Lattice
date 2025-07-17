@@ -4,6 +4,7 @@ import com.moulberry.lattice.element.LatticeElement;
 import com.moulberry.lattice.element.LatticeElements;
 import com.moulberry.lattice.keybind.LatticeInputType;
 import com.moulberry.lattice.multiversion.LatticeMultiversion;
+import com.moulberry.lattice.widget.SubcategoryButton;
 import com.moulberry.lattice.widget.WidgetWithText;
 import com.moulberry.lattice.widget.WidgetExtraFunctionality;
 import net.minecraft.ChatFormatting;
@@ -16,7 +17,6 @@ import net.minecraft.client.gui.layouts.LayoutElement;
 import net.minecraft.client.gui.navigation.FocusNavigationEvent;
 import net.minecraft.client.gui.navigation.ScreenDirection;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.ApiStatus;
@@ -33,6 +33,7 @@ public class LatticeConfigScreen extends Screen {
 
     private static final int TOP_PADDING = 48;
     private static final int BOTTOM_PADDING = 30;
+    public static final int ITEM_PADDING = 4;
 
     private int buttonWidth = 160;
 
@@ -48,12 +49,18 @@ public class LatticeConfigScreen extends Screen {
     private final List<AbstractButton> categoryButtons = new ArrayList<>();
     private final List<AbstractWidget> optionEntries = new ArrayList<>();
 
+    private final Set<LatticeElements> openedSubcategories = new HashSet<>();
+
     private int categoryContentHeight = 0;
     private double categoryScrollAmount = 0;
     private int optionContentHeight = 0;
     private double optionScrollAmount = 0;
     private int searchContentHeight = 0;
     private double searchScrollAmount = 0;
+
+    private LatticeElements scrollToSubcategory = null;
+    private int scrollToSubcategoryStart = -1;
+    private int scrollToSubcategoryEnd = -1;
 
     private WidgetExtraFunctionality currentExtraFunctionalityWidget = null;
     private boolean scrollingCategoryList = false;
@@ -91,8 +98,8 @@ public class LatticeConfigScreen extends Screen {
             this.buttonWidth = 140 * (1+this.width/560);
         }
 
-        this.buttonWidth -= 8; // padding
-        this.buttonWidth -= SCROLL_BAR_WIDTH + 4; // scrollbar
+        this.buttonWidth -= ITEM_PADDING*2; // padding
+        this.buttonWidth -= SCROLL_BAR_WIDTH + ITEM_PADDING; // scrollbar
 
         this.categoryContentHeight = 0;
         this.optionContentHeight = 0;
@@ -110,14 +117,12 @@ public class LatticeConfigScreen extends Screen {
             this.scrollingOptionList = false;
             this.scrollingSearchList = false;
             if (searchString.isBlank()) {
-                this.searching = false;
-                this.searchContentHeight = 0;
-                this.searchScrollAmount = 0;
                 this.setCategory(this.activeCategory);
             } else {
                 this.searching = true;
                 this.elementSearcher.search(searchString);
                 this.positionSearchWidgets();
+                this.setScrollToSubcategory(null);
             }
         });
         this.addRenderableWidget(this.searchBox);
@@ -130,7 +135,7 @@ public class LatticeConfigScreen extends Screen {
         this.categoryButtons.clear();
         this.buttonForCategory.clear();
         if (!this.rootCategory.options.isEmpty()) {
-            var button = Button.builder(LatticeTextComponents.DEFAULT_CATEGORY_NAME, btn -> {
+            var button = Button.builder(LatticeTextComponents.ROOT_CATEGORY_NAME, btn -> {
                 this.optionScrollAmount = 0;
                 this.setCategory(this.rootCategory);
             }).size(this.buttonWidth, 20).build();
@@ -139,7 +144,7 @@ public class LatticeConfigScreen extends Screen {
         }
 
         for (LatticeElements subcategory : this.rootCategory.subcategories) {
-            var button = Button.builder(subcategory.title == null ? LatticeTextComponents.DEFAULT_CATEGORY_NAME : subcategory.title, btn -> {
+            var button = Button.builder(subcategory.getTitleOrDefault(), btn -> {
                 this.optionScrollAmount = 0;
                 this.setCategory(subcategory);
             }).size(this.buttonWidth, 20).build();
@@ -153,7 +158,11 @@ public class LatticeConfigScreen extends Screen {
     }
 
     private void setCategory(LatticeElements category) {
+        this.searching = false;
+        this.searchContentHeight = 0;
+        this.searchScrollAmount = 0;
         this.activeCategory = category;
+        this.setScrollToSubcategory(null);
 
         for (AbstractButton button : this.categoryButtons) {
             button.active = true;
@@ -171,7 +180,20 @@ public class LatticeConfigScreen extends Screen {
             this.optionEntries.add(option.createWidget(this.font, option.title(), null, this.buttonWidth));
         }
 
-        positionOptionWidgets();
+        if (this.activeCategory != this.rootCategory) {
+            for (LatticeElements subcategory : this.activeCategory.subcategories) {
+                if (subcategory.isEmpty()) {
+                    continue;
+                }
+
+                Component title = subcategory.getTitleOrDefault();
+                Component titleWithRightArrow = Component.empty().append(title).append(" \u25B6");
+                Component titleWithDownArrow = Component.empty().append(title).append(" \u25BC");
+                this.optionEntries.add(new SubcategoryButton(this.font, this.buttonWidth, 1, subcategory, this.openedSubcategories, titleWithRightArrow, titleWithDownArrow));
+            }
+        }
+
+        this.positionOptionWidgets();
     }
 
     @Override
@@ -184,7 +206,7 @@ public class LatticeConfigScreen extends Screen {
             }
         } else {
             children.addAll(this.categoryButtons);
-            children.addAll(this.optionEntries);
+            addRecursive(children, this.optionEntries);
         }
 
         GuiEventListener popupWidget = this.getPopup();
@@ -193,6 +215,18 @@ public class LatticeConfigScreen extends Screen {
         }
 
         return children;
+    }
+
+    private static void addRecursive(List<GuiEventListener> list, List<AbstractWidget> widgets) {
+        if (widgets == null) {
+            return;
+        }
+        for (AbstractWidget widget : widgets) {
+            list.add(widget);
+            if (widget instanceof WidgetExtraFunctionality extraFunctionality) {
+                addRecursive(list, extraFunctionality.extraWidgets());
+            }
+        }
     }
 
     @Override
@@ -220,21 +254,37 @@ public class LatticeConfigScreen extends Screen {
                         }
                     }
                 }
+                return Optional.empty();
             } else if (mouseX < this.width/2f) {
                 for (AbstractButton categoryButton : this.categoryButtons) {
                     if (categoryButton.isMouseOver(mouseX, mouseY)) {
                         return Optional.of(categoryButton);
                     }
                 }
+                return Optional.empty();
             } else {
-                for (AbstractWidget abstractWidget : this.optionEntries) {
-                    if (abstractWidget.isMouseOver(mouseX, mouseY)) {
-                        return Optional.of(abstractWidget);
-                    }
-                }
+                return checkMouseOverRecursive(this.optionEntries, mouseX, mouseY);
             }
         }
 
+        return Optional.empty();
+    }
+
+    private static Optional<GuiEventListener> checkMouseOverRecursive(List<AbstractWidget> widgets, double mouseX, double mouseY) {
+        if (widgets == null) {
+            return Optional.empty();
+        }
+        for (AbstractWidget abstractWidget : widgets) {
+            if (abstractWidget.isMouseOver(mouseX, mouseY)) {
+                return Optional.of(abstractWidget);
+            }
+            if (abstractWidget instanceof WidgetExtraFunctionality extraFunctionality) {
+                var result = checkMouseOverRecursive(extraFunctionality.extraWidgets(), mouseX, mouseY);
+                if (result.isPresent()) {
+                    return result;
+                }
+            }
+        }
         return Optional.empty();
     }
 
@@ -252,6 +302,8 @@ public class LatticeConfigScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int mouseButton) {
+        this.setScrollToSubcategory(null);
+
         if (this.currentExtraFunctionalityWidget != null && this.currentExtraFunctionalityWidget.listeningForRawKeyInput()) {
             sendRawInputToWidget(LatticeInputType.MOUSE, mouseButton, false);
             return true;
@@ -286,6 +338,18 @@ public class LatticeConfigScreen extends Screen {
         if (super.mouseClicked(mouseX, mouseY, mouseButton)) {
             var newExtraFunctionalityWidget = this.getExtraFunctionalityWidget();
             if (newExtraFunctionalityWidget != null) {
+                List<LatticeElements> switchToCategoryPath = newExtraFunctionalityWidget.switchToCategoryAfterClick();
+                if (switchToCategoryPath != null && !switchToCategoryPath.isEmpty()) {
+                    for (int i = 1; i < switchToCategoryPath.size(); i++) {
+                        this.openedSubcategories.add(switchToCategoryPath.get(i));
+                    }
+                    this.setCategory(switchToCategoryPath.get(0));
+                    if (switchToCategoryPath.size() > 1) {
+                        this.setScrollToSubcategory(switchToCategoryPath.get(switchToCategoryPath.size() - 1));
+                    }
+                    return true;
+                }
+
                 this.currentExtraFunctionalityWidget = newExtraFunctionalityWidget;
             }
             return true;
@@ -298,23 +362,10 @@ public class LatticeConfigScreen extends Screen {
 
     private void sendRawInputToWidget(LatticeInputType inputType, int value, boolean release) {
         if (this.currentExtraFunctionalityWidget.handleRawInput(inputType, value, release)) {
-            List<AbstractWidget> widgets;
             if (this.searching) {
-                widgets = this.elementSearcher.getSearchedWidgets(this.font, this.buttonWidth);
+                callAfterRawInputHandledByAnyRecursive(this.elementSearcher.getSearchedWidgets(this.font, this.buttonWidth));
             } else {
-                widgets = this.optionEntries;
-            }
-
-            if (widgets != null) {
-                for (AbstractWidget widget : widgets) {
-                    if (widget instanceof WidgetExtraFunctionality widgetExtraFunctionality) {
-                        widgetExtraFunctionality.afterRawInputHandledByAny();
-                    } else if (widget instanceof WidgetWithText withDescription) {
-                        if (withDescription.widget instanceof WidgetExtraFunctionality widgetExtraFunctionality) {
-                            widgetExtraFunctionality.afterRawInputHandledByAny();
-                        }
-                    }
-                }
+                callAfterRawInputHandledByAnyRecursive(this.optionEntries);
             }
         }
 
@@ -323,6 +374,22 @@ public class LatticeConfigScreen extends Screen {
             this.currentExtraFunctionalityWidget = null;
         }
         this.suppressInputThisTick = true;
+    }
+
+    private static void callAfterRawInputHandledByAnyRecursive(List<AbstractWidget> widgets) {
+        if (widgets == null) {
+            return;
+        }
+        for (AbstractWidget widget : widgets) {
+            if (widget instanceof WidgetExtraFunctionality widgetExtraFunctionality) {
+                widgetExtraFunctionality.afterRawInputHandledByAny();
+                callAfterRawInputHandledByAnyRecursive(widgetExtraFunctionality.extraWidgets());
+            } else if (widget instanceof WidgetWithText withDescription) {
+                if (withDescription.widget instanceof WidgetExtraFunctionality widgetExtraFunctionality) {
+                    widgetExtraFunctionality.afterRawInputHandledByAny();
+                }
+            }
+        }
     }
 
     @Override
@@ -370,7 +437,7 @@ public class LatticeConfigScreen extends Screen {
     private double calculateScrollFromDrag(double dragY, int contentHeight, double scrollAmount) {
         int maxScroll = this.maxScroll(contentHeight);
         if (maxScroll > 0) {
-            int scrollBarHeight = this.height - TOP_PADDING - BOTTOM_PADDING;
+            int scrollBarHeight = this.scrollableAreaHeight();
             int scrollerHeight = Math.max(32, scrollBarHeight * scrollBarHeight / contentHeight);
 
             double dragAmount = dragY / (scrollBarHeight - scrollerHeight);
@@ -383,6 +450,8 @@ public class LatticeConfigScreen extends Screen {
     // mouseScrolled implemented by MixinLatticeConfigScreen
 
     public boolean mouseScrolledInternal(double mouseX, double mouseY, double scrollY) {
+        this.setScrollToSubcategory(null);
+
         if (this.shouldSuppressInput()) {
             return true;
         }
@@ -600,9 +669,40 @@ public class LatticeConfigScreen extends Screen {
             positionAndRenderCategoryWidgets(guiGraphics, mouseXForNonPopup, mouseYForNonPopup, partialTick);
             guiGraphics.disableScissor();
 
+            this.scrollToSubcategoryStart = -1;
+            this.scrollToSubcategoryEnd = -1;
+
             guiGraphics.enableScissor(mid+2, TOP_PADDING, this.width, this.height-BOTTOM_PADDING);
             positionAndRenderOptionWidgets(guiGraphics, mouseXForNonPopup, mouseYForNonPopup, partialTick);
             guiGraphics.disableScissor();
+
+            if (this.scrollToSubcategory == null || this.scrollToSubcategoryStart < 0 || this.scrollToSubcategoryEnd < 0) {
+                this.scrollToSubcategory = null;
+            } else {
+                int maxScroll = this.maxScroll(this.optionContentHeight);
+                int scrollTop = Math.max(this.scrollToSubcategoryStart, 0);
+                int scrollBottom = Math.min(this.scrollToSubcategoryEnd - this.scrollableAreaHeight(), maxScroll);
+
+                if (this.optionScrollAmount > scrollTop) {
+                    // Scroll up
+                    double factor = Math.max(0.001D, Math.min(1.0D, 1.0D - Math.pow(0.85D, partialTick)));
+                    this.optionScrollAmount -= 4 * partialTick + (this.optionScrollAmount - scrollTop) * factor;
+                    if (this.optionScrollAmount <= scrollTop) {
+                        this.optionScrollAmount = scrollTop;
+                        this.setScrollToSubcategory(null);
+                    }
+                } else if (this.optionScrollAmount < scrollBottom) {
+                    // Scroll down
+                    double factor = Math.max(0.001D, Math.min(1.0D, 1.0D - Math.pow(0.85D, partialTick)));
+                    this.optionScrollAmount += 4 * partialTick + (scrollBottom - this.optionScrollAmount) * factor;
+                    if (this.optionScrollAmount > scrollBottom) {
+                        this.optionScrollAmount = scrollBottom;
+                        this.setScrollToSubcategory(null);
+                    }
+                } else {
+                    this.setScrollToSubcategory(null);
+                }
+            }
 
             renderCategoryListScrollBar(guiGraphics);
             renderOptionListScrollBar(guiGraphics);
@@ -649,7 +749,7 @@ public class LatticeConfigScreen extends Screen {
             return;
         }
 
-        int currentY = TOP_PADDING + 4;
+        int currentY = TOP_PADDING + ITEM_PADDING;
 
         for (AbstractWidget widget : widgets) {
             int extraOffset = 0;
@@ -660,7 +760,7 @@ public class LatticeConfigScreen extends Screen {
             if (guiGraphics != null) {
                 widget.render(guiGraphics, mouseX, mouseY, partialTick);
             }
-            currentY += widget.getHeight() + 4;
+            currentY += widget.getHeight() + ITEM_PADDING;
         }
 
         this.searchContentHeight = currentY - TOP_PADDING;
@@ -672,18 +772,24 @@ public class LatticeConfigScreen extends Screen {
     }
 
     private void positionAndRenderCategoryWidgets(@Nullable GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        int currentY = TOP_PADDING + 3;
+        int currentY = TOP_PADDING + ITEM_PADDING - 1;
 
         for (AbstractButton categoryButton : this.categoryButtons) {
-            categoryButton.setPosition(this.width/2-this.buttonWidth-4, currentY - (int) this.categoryScrollAmount);
+            categoryButton.setPosition(this.width/2-this.buttonWidth-ITEM_PADDING, currentY - (int) this.categoryScrollAmount);
             if (guiGraphics != null) {
                 categoryButton.render(guiGraphics, mouseX, mouseY, partialTick);
             }
-            currentY += categoryButton.getHeight() + 4;
+            currentY += categoryButton.getHeight() + ITEM_PADDING;
         }
 
         this.categoryContentHeight = currentY - TOP_PADDING - 1;
         this.categoryScrollAmount = Math.min(this.categoryScrollAmount, this.maxScroll(this.categoryContentHeight));
+    }
+
+    private void setScrollToSubcategory(LatticeElements subcategory) {
+        this.scrollToSubcategory = subcategory;
+        this.scrollToSubcategoryStart = -1;
+        this.scrollToSubcategoryEnd = -1;
     }
 
     private void positionOptionWidgets() {
@@ -691,40 +797,85 @@ public class LatticeConfigScreen extends Screen {
     }
 
     private void positionAndRenderOptionWidgets(@Nullable GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        int currentY = TOP_PADDING + 4;
+        int currentY = TOP_PADDING + ITEM_PADDING;
 
-        Component title = this.activeCategory == this.rootCategory ? LatticeTextComponents.DEFAULT_CATEGORY_NAME : this.activeCategory.title;
+        Component title = this.activeCategory == this.rootCategory ? LatticeTextComponents.ROOT_CATEGORY_NAME : this.activeCategory.title;
         if (title != null) {
             if (guiGraphics != null) {
                 Component titleWithUnderline = Component.empty().append(title).withStyle(ChatFormatting.UNDERLINE);
-                LatticeMultiversion.drawString(guiGraphics, this.font, titleWithUnderline, this.width/2+6, currentY - (int) this.optionScrollAmount,
+                LatticeMultiversion.drawString(guiGraphics, this.font, titleWithUnderline, this.width/2+ITEM_PADDING+2, currentY - (int) this.optionScrollAmount,
                         0xFFFFFFFF);
             }
-            currentY += this.font.lineHeight + 4;
+            currentY += this.font.lineHeight + ITEM_PADDING;
         }
 
-        for (AbstractWidget abstractWidget : this.optionEntries) {
-            abstractWidget.setPosition(this.width/2+4, currentY - (int) this.optionScrollAmount);
-            if (guiGraphics != null) {
-                abstractWidget.render(guiGraphics, mouseX, mouseY, partialTick);
-            }
-            currentY += abstractWidget.getHeight() + 4;
-        }
+        currentY = this.positionAndRenderOptionWidgetsRecursive(guiGraphics, mouseX, mouseY, partialTick, this.width/2+ITEM_PADDING, this.optionEntries, currentY);
 
         this.optionContentHeight = currentY - TOP_PADDING;
         this.optionScrollAmount = Math.min(this.optionScrollAmount, this.maxScroll(this.optionContentHeight));
     }
 
+    private int positionAndRenderOptionWidgetsRecursive(@Nullable GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int x, List<AbstractWidget> widgets, int currentY) {
+        if (widgets == null) {
+            return currentY;
+        }
+        for (AbstractWidget widget : widgets) {
+            widget.setPosition(x, currentY - (int) this.optionScrollAmount);
+            if (guiGraphics != null) {
+                widget.render(guiGraphics, mouseX, mouseY, partialTick);
+            }
+
+            boolean scrollTo = widget instanceof SubcategoryButton subcategoryButton && subcategoryButton.getSubcategory() == this.scrollToSubcategory;
+
+            if (scrollTo) {
+                this.scrollToSubcategoryStart = currentY - TOP_PADDING;
+                this.setFocused(widget);
+            }
+
+            currentY += widget.getHeight() + ITEM_PADDING;
+
+            if (widget instanceof WidgetExtraFunctionality extraFunctionality) {
+                var extraWidgets = extraFunctionality.extraWidgets();
+                if (extraWidgets.isEmpty()) {
+                    continue;
+                }
+
+                int childX = x + extraFunctionality.extraWidgetHorizonalOffset();
+
+                int startY = currentY - LatticeConfigScreen.ITEM_PADDING;
+                currentY = positionAndRenderOptionWidgetsRecursive(guiGraphics, mouseX, mouseY, partialTick, childX, extraWidgets, currentY);
+                currentY += LatticeConfigScreen.ITEM_PADDING;
+
+                if (guiGraphics != null) {
+                    int startVerticalLineY = startY - (int) this.optionScrollAmount;
+                    int endVerticalLineY = currentY - (int) this.optionScrollAmount - LatticeConfigScreen.ITEM_PADDING;
+                    if (endVerticalLineY > startVerticalLineY) {
+                        int lineX = extraFunctionality.renderVerticalLineForExtraWidgetsAtX();
+                        if (lineX >= this.width/2 && lineX < this.width) {
+                            guiGraphics.fill(lineX-1, startVerticalLineY, lineX, endVerticalLineY, 0x66FFFFFF);
+                            guiGraphics.fill(lineX, startVerticalLineY, lineX+1, endVerticalLineY, 0xBF000000);
+                        }
+                    }
+                }
+            }
+
+            if (scrollTo) {
+                this.scrollToSubcategoryEnd = currentY - TOP_PADDING;
+            }
+        }
+        return currentY;
+    }
+
     private int getCategoryListScrollBarX() {
-        return this.width / 2 - 4 - this.buttonWidth - 4 - SCROLL_BAR_WIDTH;
+        return this.width / 2 - ITEM_PADDING - this.buttonWidth - ITEM_PADDING - SCROLL_BAR_WIDTH;
     }
 
     private int getOptionListScrollBarX() {
-        return this.width / 2 + 4 + this.buttonWidth + 4;
+        return this.width / 2 + ITEM_PADDING + this.buttonWidth + ITEM_PADDING;
     }
 
     private int getSearchListScrollBarX() {
-        return this.width/2 + this.buttonWidth/2 + 4;
+        return this.width/2 + this.buttonWidth/2 + ITEM_PADDING;
     }
 
     private void renderCategoryListScrollBar(GuiGraphics guiGraphics) {
@@ -744,7 +895,7 @@ public class LatticeConfigScreen extends Screen {
         if (maxScroll > 0) {
             double currentScroll = Math.min(scrollAmount, maxScroll);
 
-            int scrollBarHeight = this.height - TOP_PADDING - BOTTOM_PADDING;
+            int scrollBarHeight = this.scrollableAreaHeight();
             int scrollerHeight = Math.max(32, scrollBarHeight * scrollBarHeight / contentHeight);
 
             int scrollBarY = TOP_PADDING;
@@ -781,9 +932,13 @@ public class LatticeConfigScreen extends Screen {
         return null;
     }
 
+    private int scrollableAreaHeight() {
+        return this.height-TOP_PADDING-BOTTOM_PADDING;
+    }
+
     private int maxScroll(int contentHeight) {
-        int maxScroll = contentHeight - (this.height-TOP_PADDING-BOTTOM_PADDING);
-        if (maxScroll > 4) {
+        int maxScroll = contentHeight - this.scrollableAreaHeight();
+        if (maxScroll > ITEM_PADDING) {
             return maxScroll;
         } else {
             return 0;

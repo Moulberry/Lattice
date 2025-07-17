@@ -11,7 +11,7 @@ public @interface LatticeFloatRange {
 
     // min/max/step when normally inputting values (e.g. moving a slider)
     float min();
-    int max();
+    float max();
     String step() default "0.01";
 
     // clampMin/clampMax/clampStep when manually inputting values (e.g. right-clicking a slider)

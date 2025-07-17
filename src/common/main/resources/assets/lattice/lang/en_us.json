@@ -1,4 +1,5 @@
 {
   "lattice.default_config_name": "Configuration",
-  "lattice.default_category_name": "General"
+  "lattice.root_category_name": "General",
+  "lattice.unnamed_category": "Unnamed Category"
 }

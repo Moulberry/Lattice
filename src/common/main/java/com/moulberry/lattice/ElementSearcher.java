@@ -1,7 +1,11 @@
 package com.moulberry.lattice;
 
+import com.google.common.collect.Lists;
 import com.moulberry.lattice.element.LatticeElement;
 import com.moulberry.lattice.element.LatticeElements;
+import com.moulberry.lattice.widget.CategoryStringWidget;
+import it.unimi.dsi.fastutil.objects.Object2BooleanFunction;
+import it.unimi.dsi.fastutil.objects.Object2BooleanOpenHashMap;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -19,7 +23,17 @@ public class ElementSearcher {
 
     private final LatticeElements root;
 
-    record SearchedElement(Component categoryTree, LatticeElement element) {}
+    private static final class SearchedElement {
+        private final List<LatticeElements> categoryPath;
+        private boolean categoryMatchesSearch;
+        private final LatticeElement element;
+
+        public SearchedElement(List<LatticeElements> categoryPath, boolean categoryMatchesSearch, LatticeElement element) {
+            this.categoryPath = categoryPath;
+            this.categoryMatchesSearch = categoryMatchesSearch;
+            this.element = element;
+        }
+    }
 
     private String lastSearch = null;
     private final List<SearchedElement> searchedElements = new ArrayList<>();
@@ -49,55 +63,96 @@ public class ElementSearcher {
         if (this.lastSearch == null || this.lastSearch.isEmpty() || !search.startsWith(this.lastSearch)) {
             this.lastSearch = search;
             this.searchedElements.clear();
-            performSearch(this.root, null, search);
+            performSearch(List.of(this.root), false, search);
         } else {
             this.lastSearch = search;
             refineSearch(search);
         }
     }
 
-    private void performSearch(LatticeElements elements, @Nullable Component titlePath, String search) {
-        Component title;
-        Component titleForChildren;
+    private void performSearch(List<LatticeElements> currentPath, boolean categoryMatchesSearch, String search) {
+        if (currentPath == null || currentPath.isEmpty()) {
+            throw new IllegalArgumentException();
+        }
 
-        if (elements == this.root || elements.title == null) {
-            title = LatticeTextComponents.DEFAULT_CATEGORY_NAME.copy().withStyle(ChatFormatting.UNDERLINE);
-            if (titlePath != null) {
-                title = Component.empty().append(titlePath).append(" / ").append(title);
-            }
-            titleForChildren = null;
-        } else {
-            title = Component.empty().append(elements.title).withStyle(ChatFormatting.UNDERLINE);
-            if (titlePath != null) {
-                title = Component.empty().append(titlePath).append(" / ").append(title);
-            }
-            titleForChildren = title;
+        LatticeElements elements = currentPath.get(currentPath.size() - 1);
+        if (elements.isEmpty()) {
+            return;
+        }
+
+        if (!categoryMatchesSearch) {
+            categoryMatchesSearch = this.matchesSearch(search, elements);
         }
 
         for (LatticeElement option : elements.options) {
-            boolean matches = matchesSearch(search, option);
+            boolean matches = categoryMatchesSearch || matchesSearch(search, option);
 
             if (matches) {
-                SearchedElement searchedElement = new SearchedElement(title, option);
+                SearchedElement searchedElement = new SearchedElement(currentPath, categoryMatchesSearch, option);
                 this.searchedElements.add(searchedElement);
             }
         }
 
+        List<LatticeElements> currentPathWithoutRoot;
+        if (elements == this.root) {
+            currentPathWithoutRoot = new ArrayList<>();
+            categoryMatchesSearch = false;
+        } else {
+            currentPathWithoutRoot = currentPath;
+        }
+
         for (LatticeElements subcategory : elements.subcategories) {
-            performSearch(subcategory, titleForChildren, search);
+            List<LatticeElements> subPath = new ArrayList<>(currentPathWithoutRoot);
+            subPath.add(subcategory);
+            performSearch(Collections.unmodifiableList(subPath), categoryMatchesSearch, search);
         }
     }
 
     private void refineSearch(String search) {
         var iterator = this.searchedElements.iterator();
+
+        boolean lastCategoryMatchesSearch = false;
+        List<LatticeElements> lastCategoryPath = null;
+
+        Object2BooleanOpenHashMap<LatticeElements> matchesSearch = new Object2BooleanOpenHashMap<>();
+
         while (iterator.hasNext()) {
             SearchedElement searchedElement = iterator.next();
-            boolean matches = matchesSearch(search, searchedElement.element);
+
+            List<LatticeElements> categoryPath = searchedElement.categoryPath;
+
+            if (categoryPath != lastCategoryPath) {
+                lastCategoryPath = categoryPath;
+
+                lastCategoryMatchesSearch = false;
+                for (LatticeElements category : categoryPath) {
+                    lastCategoryMatchesSearch = matchesSearch.computeIfAbsent(category, elements -> this.matchesSearch(search, (LatticeElements) elements));
+                    if (lastCategoryMatchesSearch) {
+                        break;
+                    }
+                }
+            }
+
+            boolean matches = lastCategoryMatchesSearch || matchesSearch(search, searchedElement.element);
 
             if (!matches) {
                 iterator.remove();
+            } else {
+                searchedElement.categoryMatchesSearch = lastCategoryMatchesSearch;
             }
         }
+    }
+
+    private boolean matchesSearch(String search, LatticeElements category) {
+        Component title;
+        if (category == this.root) {
+            title = LatticeTextComponents.ROOT_CATEGORY_NAME;
+        } else {
+            title = category.getTitleOrDefault();
+        }
+
+        String titleString = title.getString();
+        return titleString.toLowerCase(Locale.ROOT).contains(search);
     }
 
     private static boolean matchesSearch(String search, LatticeElement option) {
@@ -125,25 +180,47 @@ public class ElementSearcher {
 
         char[] searchCharArray = this.lastSearch.toCharArray();
 
-        Component lastCategoryTree = null;
+        List<LatticeElements> lastCategoryPath = null;
         for (SearchedElement searchedElement : this.searchedElements) {
-            Component categoryTree = searchedElement.categoryTree;
+            if (searchedElement.categoryPath != lastCategoryPath) {
+                lastCategoryPath = searchedElement.categoryPath;
 
-            if (categoryTree != lastCategoryTree) {
-                lastCategoryTree = categoryTree;
-                this.searchedWidgets.add(new StringWidget(width, font.lineHeight, categoryTree, font).alignLeft());
+                List<Component> components = new ArrayList<>(lastCategoryPath.size());
+                for (LatticeElements category : lastCategoryPath) {
+                    Component title;
+                    if (category == this.root) {
+                        title = LatticeTextComponents.ROOT_CATEGORY_NAME;
+                    } else {
+                        title = category.getTitleOrDefault();
+                    }
+
+                    if (searchedElement.categoryMatchesSearch) {
+                        Component styledTitle = applySearchStyleToComponent(title, searchCharArray);
+                        if (styledTitle != null) {
+                            title = styledTitle;
+                        }
+                    }
+
+                    title = Component.empty().append(title).withStyle(ChatFormatting.UNDERLINE);
+
+                    components.add(title);
+                }
+
+                this.searchedWidgets.add(new CategoryStringWidget(0, 0, width, font.lineHeight, lastCategoryPath, components, font));
             }
 
             Component title = searchedElement.element.title();
             Component description = searchedElement.element.description();
 
-            Component maybeBoldTitle = applySearchStyleToComponent(title, searchCharArray);
-            if (maybeBoldTitle != null) {
-                title = maybeBoldTitle;
-            } else if (description != null) {
-                Component maybeBoldDescription = applySearchStyleToComponent(description, searchCharArray);
-                if (maybeBoldDescription != null) {
-                    description = maybeBoldDescription;
+            if (!searchedElement.categoryMatchesSearch) {
+                Component maybeBoldTitle = applySearchStyleToComponent(title, searchCharArray);
+                if (maybeBoldTitle != null) {
+                    title = maybeBoldTitle;
+                } else if (description != null) {
+                    Component maybeBoldDescription = applySearchStyleToComponent(description, searchCharArray);
+                    if (maybeBoldDescription != null) {
+                        description = maybeBoldDescription;
+                    }
                 }
             }
 
@@ -194,7 +271,7 @@ public class ElementSearcher {
                 if (Character.toLowerCase(c) == search[state.searchPosition]) {
                     state.searchPosition += 1;
                     if (state.searchPosition == search.length) {
-                        int startStyledIndex = index - search.length + 1;
+                        int startStyledIndex = Math.max(0, index - search.length + 1);
 
                         if (usedIndex < startStyledIndex) {
                             newComponent.append(Component.literal(string.substring(usedIndex, startStyledIndex)).setStyle(style));
@@ -222,19 +299,30 @@ public class ElementSearcher {
             }
 
             if (usedIndex < stringLength) {
-                String remaining = string.substring(usedIndex);
                 if (state.searchPosition == 0) {
+                    String remaining = string.substring(usedIndex);
                     newComponent.append(Component.literal(remaining).setStyle(style));
                 } else {
+                    int startStyledIndex = Math.max(0, stringLength - state.searchPosition);
+
+                    if (usedIndex < startStyledIndex) {
+                        newComponent.append(Component.literal(string.substring(usedIndex, startStyledIndex)).setStyle(style));
+                    }
+
+                    String remainingStyled = string.substring(startStyledIndex);
                     MaybeMatchingFragment fragment = new MaybeMatchingFragment();
                     fragment.style = style;
-                    fragment.content = remaining;
+                    fragment.content = remainingStyled;
                     state.maybeMatchingFragments.add(fragment);
                 }
             }
 
             return Optional.empty();
         }, Style.EMPTY);
+
+        for (MaybeMatchingFragment fragment : state.maybeMatchingFragments) {
+            newComponent.append(Component.literal(fragment.content).setStyle(fragment.style));
+        }
 
         if (state.appliedSearchStyle) {
             return newComponent;

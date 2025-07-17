@@ -30,13 +30,7 @@ public final class LatticeElement implements WidgetFunction {
     public LatticeElement(WidgetFunction widgetFunction, @NotNull Component title, @Nullable Component description) {
         this.widgetFunction = widgetFunction;
         this.title = title;
-        if (description == null) {
-            this.description = null;
-        } else if (description.getStyle().getColor() == null) {
-            this.description = description.copy().withStyle(description.getStyle().withColor(0xFFE0E0E0));
-        } else {
-            this.description = description;
-        }
+        this.description = description;
     }
 
     @NotNull

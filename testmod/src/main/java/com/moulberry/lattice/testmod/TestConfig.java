@@ -13,6 +13,10 @@ import org.lwjgl.glfw.GLFW;
 
 public class TestConfig {
 
+    @LatticeOption(title = "Root", description = "This is an option present at the root level. It should use the default category name 'General'", translate = false)
+    @LatticeWidgetButton
+    public boolean rootButton = false;
+
     @LatticeCategory(name = "Booleans", translate = false)
     public Booleans booleans = new Booleans();
 
@@ -126,6 +130,50 @@ public class TestConfig {
 
         private boolean checkShowNext() {
             return !this.showNext;
+        }
+    }
+
+    @LatticeCategory(name = "Subcategories", translate = false)
+    public Subcategories subcategories = new Subcategories();
+
+    public static class Subcategories {
+        @LatticeCategory(name = "Subcategory", translate = false)
+        public Subcategory subcategory = new Subcategory();
+
+        public static class Subcategory {
+            @LatticeOption(title = "Boolean in subcategory", description = "This boolean is part of the subcategory", translate = false)
+            @LatticeWidgetButton
+            public boolean subcategoryBool = false;
+
+            @LatticeCategory(name = "Subsubcategory", translate = false)
+            public Subsubcategory subsubcategory = new Subsubcategory();
+
+            public static class Subsubcategory {
+                @LatticeOption(title = "Boolean in subsubcategory", description = "This boolean is part of the subsubcategory", translate = false)
+                @LatticeWidgetButton
+                public boolean subsubcategoryBool = false;
+            }
+
+            @LatticeCategory(name = "Subsubcategory 2", translate = false)
+            public Subsubcategory subsubcategory2 = new Subsubcategory();
+
+            @LatticeCategory(name = "Subsubcategory 3", translate = false)
+            public Subsubcategory subsubcategory3 = new Subsubcategory();
+        }
+
+        @LatticeCategory(name = "Other Subcategory", translate = false)
+        public OtherSubcategory otherSubcategory = new OtherSubcategory();
+
+        @LatticeCategory(name = "Other Subcategory 2", translate = false)
+        public OtherSubcategory otherSubcategory2 = new OtherSubcategory();
+
+        @LatticeCategory(name = "Other Subcategory 3", translate = false)
+        public OtherSubcategory otherSubcategory3 = new OtherSubcategory();
+
+        public static class OtherSubcategory {
+            @LatticeOption(title = "Boolean in other subcategory", description = "This boolean is part of the other subcategory", translate = false)
+            @LatticeWidgetButton
+            public boolean otherSubcategoryBool = false;
         }
     }
 
