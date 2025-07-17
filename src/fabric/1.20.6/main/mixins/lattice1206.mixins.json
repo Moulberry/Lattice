@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.moulberry.lattice.mixin.v1206",
+  "compatibilityLevel": "JAVA_21",
+  "plugin": "com.moulberry.mixinconstraints.ConstraintsMixinPlugin",
+  "client": [
+    "MixinDropdownWidget"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
