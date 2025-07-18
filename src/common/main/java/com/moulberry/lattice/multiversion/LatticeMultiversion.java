@@ -13,15 +13,17 @@ public class LatticeMultiversion {
 
     public static void drawString(GuiGraphics guiGraphics, Font font, Component component, int x, int y, int color) {
         // Implemented by MixinDrawString
+        throw new UnsupportedOperationException();
     }
 
     public static void drawString(GuiGraphics guiGraphics, Font font, FormattedCharSequence formattedCharSequence, int x, int y, int color) {
         // Implemented by MixinDrawString
+        throw new UnsupportedOperationException();
     }
 
     public static boolean callMouseScrolled(GuiEventListener eventListener, double mouseX, double mouseY, double scrollY) {
         // Implemented by MixinMouseScrolled
-        return false;
+        throw new UnsupportedOperationException();
     }
 
     public static MultiLineEditBox newMultiLineEditBox(Font font, int width, int height, Component title) {
@@ -31,6 +33,7 @@ public class LatticeMultiversion {
 
     public static void offsetZ(GuiGraphics guiGraphics, double z) {
         // Implemented by MixinOffsetZ on supported versions (<1.21.6)
+        throw new UnsupportedOperationException();
     }
 
 }

@@ -127,6 +127,11 @@ public class LatticeConfigScreen extends Screen {
         });
         this.addRenderableWidget(this.searchBox);
 
+        // Done button
+        this.addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, button -> {
+            this.onClose();
+        }).bounds(this.width/2 - 100, this.height - (BOTTOM_PADDING-2)/2 - 20/2, 200, 20).build());
+
         if (this.searching) {
             this.positionSearchWidgets();
         }
@@ -189,7 +194,7 @@ public class LatticeConfigScreen extends Screen {
                 Component title = subcategory.getTitleOrDefault();
                 Component titleWithRightArrow = Component.empty().append(title).append(" \u25B6");
                 Component titleWithDownArrow = Component.empty().append(title).append(" \u25BC");
-                this.optionEntries.add(new SubcategoryButton(this.font, this.buttonWidth, 1, subcategory, this.openedSubcategories, titleWithRightArrow, titleWithDownArrow));
+                this.optionEntries.add(new SubcategoryButton(this.font, this.buttonWidth, 0, subcategory, this.openedSubcategories, titleWithRightArrow, titleWithDownArrow));
             }
         }
 

@@ -1,5 +1,5 @@
 plugins {
-    id("earth.terrarium.cloche") version "0.11.4"
+    id("earth.terrarium.cloche") version "0.11.6"
 }
 
 version = "1.0.0"
@@ -44,8 +44,8 @@ cloche {
 
             dependencies {
                 fabricApi(apiVersion, version)
-                implementation(rootProject.tasks.named<Jar>("mergedFabric").get().outputs.files)
-                include(rootProject.tasks.named<Jar>("mergedFabric").get().outputs.files)
+                implementation(rootProject.tasks.named<Jar>("buildMergedFabric").get().outputs.files)
+                include(rootProject.tasks.named<Jar>("buildMergedFabric").get().outputs.files)
                 implementation("com.moulberry:mixinconstraints:1.0.9")
                 include("com.moulberry:mixinconstraints:1.0.9")
             }
