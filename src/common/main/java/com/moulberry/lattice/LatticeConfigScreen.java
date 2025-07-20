@@ -134,6 +134,7 @@ public class LatticeConfigScreen extends Screen {
             } else {
                 this.searching = true;
                 this.elementSearcher.search(searchString);
+                this.resetTickWidgetsOnPosition();
                 this.positionSearchWidgets();
                 this.setScrollToSubcategory(null);
             }
@@ -220,6 +221,7 @@ public class LatticeConfigScreen extends Screen {
             }
         }
 
+        this.resetTickWidgetsOnPosition();
         this.positionOptionWidgets();
     }
 
@@ -520,6 +522,10 @@ public class LatticeConfigScreen extends Screen {
     public void tick() {
         super.tick();
         this.suppressInputThisTick = false;
+        this.resetTickWidgetsOnPosition();
+    }
+
+    private void resetTickWidgetsOnPosition() {
         if (!this.tickWidgetsOnPosition && this.widgetContext.hasAnyOnTickConditions()) {
             this.tickWidgetsOnPosition = true;
             this.widgetsThatWereHiddenOnLastTick.clear();

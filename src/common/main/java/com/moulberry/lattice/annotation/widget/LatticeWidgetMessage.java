@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface LatticeWidgetMessage {
 
-    int maxRows() default Integer.MAX_VALUE;
+    int maxRows() default 1;
     boolean centered() default true;
 
 }

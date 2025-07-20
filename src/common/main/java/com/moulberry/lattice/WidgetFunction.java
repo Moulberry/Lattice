@@ -66,11 +66,21 @@ public interface WidgetFunction {
 
     static @NotNull WidgetFunction string(int maxRows, boolean centered) {
         return (font, title, description, width) -> {
-            MultiLineTextWidget textWidget = new MultiLineTextWidget(title, font);
-            textWidget.setMaxWidth(width);
-            textWidget.setMaxRows(maxRows);
-            textWidget.setCentered(centered);
-            return textWidget;
+            if (maxRows <= 1) {
+                StringWidget stringWidget = new StringWidget(0, 0, width, font.lineHeight, title, font);
+                if (centered) {
+                    stringWidget.alignCenter();
+                } else {
+                    stringWidget.alignLeft();
+                }
+                return stringWidget;
+            } else {
+                MultiLineTextWidget textWidget = new MultiLineTextWidget(title, font);
+                textWidget.setMaxWidth(width);
+                textWidget.setMaxRows(maxRows);
+                textWidget.setCentered(centered);
+                return textWidget;
+            }
         };
     }
 
