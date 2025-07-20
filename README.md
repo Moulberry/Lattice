@@ -42,7 +42,9 @@ If you don't want to use the annotations, you can create the LatticeElements obj
 ## Config screen
 Once you have your LatticeElements, you can create a config screen like so:
 `Lattice.createConfigScreen(latticeElements, config::saveToDefaultFolder, Minecraft.getInstance().screen)`
+
 The second arg is a runnable that is invoked when the screen is closed, you can use this to save the config.
+
 The third arg is the screen that will appear when you close the config, it's recommended to set this to the current screen.
 
 ## Testing the config
