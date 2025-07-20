@@ -2,6 +2,7 @@ package com.moulberry.lattice.widget;
 
 import com.moulberry.lattice.LatticeConfigScreen;
 import com.moulberry.lattice.LatticeTextComponents;
+import com.moulberry.lattice.LatticeWidgetContext;
 import com.moulberry.lattice.element.LatticeElement;
 import com.moulberry.lattice.element.LatticeElements;
 import net.minecraft.client.gui.Font;
@@ -22,18 +23,21 @@ public class SubcategoryButton extends AbstractButton implements WidgetExtraFunc
     private final int index;
     private final LatticeElements subcategory;
     private final Set<LatticeElements> openedSubcategories;
+    private final LatticeWidgetContext widgetContext;
     private final Component closedTitle;
     private final Component openedTitle;
     private final List<AbstractWidget> childWidgets = new ArrayList<>();
     private final int widthForChildren;
 
-    public SubcategoryButton(Font font, int baseWidth, int index, LatticeElements subcategory, Set<LatticeElements> openedSubcategories, Component closedTitle, Component openedTitle) {
+    public SubcategoryButton(Font font, int baseWidth, int index, LatticeElements subcategory, Set<LatticeElements> openedSubcategories,
+            LatticeWidgetContext widgetContext, Component closedTitle, Component openedTitle) {
         super(0, 0, calculateWidth(baseWidth, index), 20, closedTitle);
         this.font = font;
         this.baseWidth = baseWidth;
         this.index = index;
         this.subcategory = subcategory;
         this.openedSubcategories = openedSubcategories;
+        this.widgetContext = widgetContext;
         this.closedTitle = closedTitle;
         this.openedTitle = openedTitle;
         this.widthForChildren = calculateWidth(baseWidth, index+1);
@@ -67,8 +71,10 @@ public class SubcategoryButton extends AbstractButton implements WidgetExtraFunc
         this.childWidgets.clear();
 
         for (LatticeElement option : this.subcategory.options) {
-            var widget = option.createWidget(this.font, option.title(), null, this.widthForChildren);
-            this.childWidgets.add(widget);
+            var widget = this.widgetContext.create(option, null, null, this.widthForChildren);
+            if (widget != null) {
+                this.childWidgets.add(widget);
+            }
         }
 
         for (LatticeElements subcategory : this.subcategory.subcategories) {
@@ -81,7 +87,7 @@ public class SubcategoryButton extends AbstractButton implements WidgetExtraFunc
             Component titleWithDownArrow = Component.empty().append(title).append(" \u25BC");
 
             var widget = new SubcategoryButton(this.font, this.baseWidth, this.index+1, subcategory,
-                this.openedSubcategories, titleWithRightArrow, titleWithDownArrow);
+                this.openedSubcategories, this.widgetContext, titleWithRightArrow, titleWithDownArrow);
             this.childWidgets.add(widget);
         }
     }

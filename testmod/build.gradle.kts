@@ -46,8 +46,6 @@ cloche {
                 fabricApi(apiVersion, version)
                 implementation(rootProject.tasks.named<Jar>("buildMergedFabric").get().outputs.files)
                 include(rootProject.tasks.named<Jar>("buildMergedFabric").get().outputs.files)
-                implementation("com.moulberry:mixinconstraints:1.0.9")
-                include("com.moulberry:mixinconstraints:1.0.9")
             }
 
             metadata {
@@ -59,8 +57,8 @@ cloche {
     }
 
     createFabric("1.20.1", "0.92.6")
-    createFabric("1.20.2", "0.89.0")
-    createFabric("1.20.4", "0.97.3")
+    createFabric("1.20.2", "0.91.6")
+    createFabric("1.20.4", "0.91.3")
     createFabric("1.20.6", "0.100.8")
     createFabric("1.21.1", "0.116.4")
     createFabric("1.21.3", "0.106.1")

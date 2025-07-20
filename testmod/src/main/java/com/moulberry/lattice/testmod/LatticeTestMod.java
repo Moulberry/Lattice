@@ -1,11 +1,7 @@
 package com.moulberry.lattice.testmod;
 
 import com.moulberry.lattice.Lattice;
-import com.moulberry.lattice.LatticeConfigScreen;
-import com.moulberry.lattice.WidgetFunction;
-import com.moulberry.lattice.element.LatticeElement;
 import com.moulberry.lattice.element.LatticeElements;
-import com.moulberry.mixinconstraints.MixinConstraints;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;

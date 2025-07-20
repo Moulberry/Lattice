@@ -1,5 +1,6 @@
 package com.moulberry.lattice;
 
+import com.moulberry.lattice.annotation.widget.LatticeWidgetMessage;
 import com.moulberry.lattice.multiversion.LatticeMultiversion;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.*;
@@ -16,7 +17,7 @@ import java.util.function.Supplier;
 @FunctionalInterface
 public interface WidgetFunction {
 
-    @NotNull
+    @Nullable
     AbstractWidget createWidget(Font font, @NotNull Component title, @Nullable Component description, int width);
 
     static WidgetFunction onOffButton(BooleanSupplier initial, Consumer<Boolean> setter) {
@@ -60,6 +61,16 @@ public interface WidgetFunction {
             editBox.setCharacterLimit(characterLimit);
             editBox.setValueListener(setter);
             return editBox;
+        };
+    }
+
+    static @NotNull WidgetFunction string(int maxRows, boolean centered) {
+        return (font, title, description, width) -> {
+            MultiLineTextWidget textWidget = new MultiLineTextWidget(title, font);
+            textWidget.setMaxWidth(width);
+            textWidget.setMaxRows(maxRows);
+            textWidget.setCentered(centered);
+            return textWidget;
         };
     }
 

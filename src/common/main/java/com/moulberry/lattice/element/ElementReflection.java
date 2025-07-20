@@ -16,6 +16,8 @@ import com.moulberry.lattice.keybind.LatticeInputType;
 import com.moulberry.lattice.widget.DiscreteSlider;
 import com.moulberry.lattice.widget.DropdownWidget;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.ApiStatus;
 
@@ -28,20 +30,25 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 
 @ApiStatus.Internal
-class ElementReflection {
+public class ElementReflection {
 
     private static final Set<Class<? extends Annotation>> widgetAnnotations = Set.of(
         LatticeWidgetButton.class,
-        LatticeWidgetSlider.class,
         LatticeWidgetDropdown.class,
         LatticeWidgetKeybind.class,
-        LatticeWidgetTextField.class,
-        LatticeWidgetTextArea.class
+        LatticeWidgetMessage.class,
+        LatticeWidgetSlider.class,
+        LatticeWidgetTextArea.class,
+        LatticeWidgetTextField.class
     );
 
     private static final Set<Class<? extends Annotation>> otherAnnotations = Set.of(
@@ -49,10 +56,47 @@ class ElementReflection {
         LatticeFloatRange.class
     );
 
-    static void addElementsFromClass(Object config, LatticeElements elements, List<KeyMapping> keyMappings) throws LatticeFieldToOptionException {
+    private record CachedConditionKey(Class<?> clazz, String method) {}
+
+    private final Map<CachedConditionKey, BooleanSupplier> conditions = new HashMap<>();
+    private final KeyMappingListSupplier keyMappingListSupplier = new KeyMappingListSupplier();
+
+    private static class KeyMappingListSupplier {
+        private List<KeyMapping> keyMappingsDelayedRegister = new ArrayList<>();
+        private List<KeyMapping> keyMappings = null;
+
+        private void ensureRegistered(KeyMapping keyMapping) {
+            List<KeyMapping> list = this.get();
+            if (!list.contains(keyMapping)) {
+                list.add(keyMapping);
+            }
+        }
+
+        private List<KeyMapping> get() {
+            if (this.keyMappings == null) {
+                Options minecraftOptions = Minecraft.getInstance().options;
+                if (minecraftOptions == null) {
+                    return this.keyMappingsDelayedRegister;
+                } else {
+                    this.keyMappings = new ArrayList<>(Arrays.asList(minecraftOptions.keyMappings));
+
+                    List<KeyMapping> delayedRegister = this.keyMappingsDelayedRegister;
+                    this.keyMappingsDelayedRegister = null;
+
+                    for (KeyMapping keyMapping : delayedRegister) {
+                        this.ensureRegistered(keyMapping);
+                    }
+                }
+            }
+
+            return this.keyMappings;
+        }
+    }
+
+    public void addElementsFromClass(Object config, LatticeElements elements) throws LatticeFieldToOptionException {
         for (Field field : config.getClass().getDeclaredFields()) {
             try {
-                addElementsFromField(config, field, elements, keyMappings);
+                addElementsFromField(config, field, elements);
             } catch (IllegalAccessException e) {
                 continue;
             } catch (LatticeFieldToOptionException e) {
@@ -63,25 +107,25 @@ class ElementReflection {
         }
     }
 
-    static void addElementsFromField(Object config, Field field, LatticeElements elements, List<KeyMapping> keyMappings) throws IllegalAccessException, LatticeFieldToOptionException {
-        Class<?> fieldType = field.getType();
-
+    public void addElementsFromField(Object config, Field field, LatticeElements elements) throws IllegalAccessException, LatticeFieldToOptionException {
         // Ignore static fields
         if ((field.getModifiers() & Modifier.STATIC) != 0) {
             return;
         }
 
+        LatticeDynamicCondition hideDynamic = null;
+
         LatticeHideIf latticeHideIf = field.getDeclaredAnnotation(LatticeHideIf.class);
         if (latticeHideIf != null) {
-            String functionName = latticeHideIf.function();
-            if (findAndInvokeBooleanFunction(config, latticeHideIf, functionName)) return;
+            BooleanSupplier supplier = getOrCreateCondition(config, latticeHideIf, latticeHideIf.function());
+            hideDynamic = new LatticeDynamicCondition(supplier, latticeHideIf.frequency());
         }
 
-        boolean disabled = false;
+        LatticeDynamicCondition disableDynamic = null;
         LatticeDisableIf latticeDisableIf = field.getDeclaredAnnotation(LatticeDisableIf.class);
         if (latticeDisableIf != null) {
-            String functionName = latticeDisableIf.function();
-            disabled = findAndInvokeBooleanFunction(config, latticeDisableIf, functionName);
+            BooleanSupplier supplier = getOrCreateCondition(config, latticeDisableIf, latticeDisableIf.function());
+            disableDynamic = new LatticeDynamicCondition(supplier, latticeDisableIf.frequency());
         }
 
         LatticeCategory latticeCategory = field.getDeclaredAnnotation(LatticeCategory.class);
@@ -97,8 +141,27 @@ class ElementReflection {
             }
 
             LatticeElements childElements = new LatticeElements(nameComponent);
-            addElementsFromClass(childConfig, childElements, keyMappings);
+            this.addElementsFromClass(childConfig, childElements);
             elements.subcategories.add(childElements);
+            return;
+        }
+
+        // Special handling for LatticeWidgetMessage since it doesn't need @LatticeOption
+        LatticeWidgetMessage latticeWidgetMessage = field.getDeclaredAnnotation(LatticeWidgetMessage.class);
+        if (latticeWidgetMessage != null) {
+            Component message;
+            if (field.getType() == String.class) {
+                message = Component.literal((String) field.get(config));
+            } else if (Component.class.isAssignableFrom(field.getType())) {
+                message = (Component) field.get(config);
+            } else {
+                throw new RuntimeException(field.getType() + " isn't compatible with @LatticeWidgetMessage");
+            }
+
+            LatticeElement latticeElement = new LatticeElement(WidgetFunction.string(latticeWidgetMessage.maxRows(), latticeWidgetMessage.centered()), message, null);
+            latticeElement.disabledDynamic(disableDynamic);
+            latticeElement.hiddenDynamic(hideDynamic);
+            elements.options.add(latticeElement);
             return;
         }
 
@@ -107,14 +170,15 @@ class ElementReflection {
             return;
         }
 
-        String titleString = latticeOption.title();
-        String descriptionString = latticeOption.description();
         boolean translate = latticeOption.translate();
 
+        String titleString = latticeOption.title();
         Component titleComponent = translate ? Component.translatable(titleString) : Component.literal(titleString);
 
+        String descriptionString = latticeOption.description();
         Component descriptionComponent = null;
         if (descriptionString != null) {
+            descriptionString = descriptionString.replace("!!", titleString);
             descriptionComponent = translate ? Component.translatable(descriptionString) : Component.literal(descriptionString);
         }
 
@@ -133,14 +197,22 @@ class ElementReflection {
             throw new RuntimeException("Missing @LatticeWidget annotation");
         }
 
-        LatticeElement latticeElement = createLatticeElement(config, field, keyMappings, widgetAnnotation, titleComponent, descriptionComponent);
-        latticeElement.withDisabled(disabled);
+        LatticeElement latticeElement = createLatticeElement(config, field, widgetAnnotation, titleComponent, descriptionComponent);
+        latticeElement.disabledDynamic(disableDynamic);
+        latticeElement.hiddenDynamic(hideDynamic);
         elements.options.add(latticeElement);
     }
 
-    private static boolean findAndInvokeBooleanFunction(Object config, Annotation annotation, String functionName) {
+    private BooleanSupplier getOrCreateCondition(Object config, Annotation annotation, String functionName) {
         Class<?> clazz = config.getClass();
         while (clazz != null) {
+            CachedConditionKey key = new CachedConditionKey(clazz, functionName);
+            BooleanSupplier cached = this.conditions.get(key);
+
+            if (cached != null) {
+                return cached;
+            }
+
             try {
                 Method method = config.getClass().getDeclaredMethod(functionName);
 
@@ -148,12 +220,18 @@ class ElementReflection {
                     throw new RuntimeException("Error trying to check " + annotation + ": " + method + " does not return boolean");
                 }
 
-                try {
-                    method.trySetAccessible();
-                    return (Boolean) method.invoke(config);
-                } catch (InvocationTargetException | IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                }
+                method.trySetAccessible();
+
+                BooleanSupplier supplier = () -> {
+                    try {
+                        return (Boolean) method.invoke(config);
+                    } catch (InvocationTargetException | IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
+                };
+
+                this.conditions.put(key, supplier);
+                return supplier;
             } catch (NoSuchMethodException ignored) {}
             clazz = config.getClass().getEnclosingClass();
         }
@@ -161,7 +239,7 @@ class ElementReflection {
         throw new RuntimeException("Can't find function for " + annotation);
     }
 
-    private static LatticeElement createLatticeElement(Object config, Field field, List<KeyMapping> keyMappings, Annotation widgetAnnotation, Component titleComponent, Component descriptionComponent) throws IllegalAccessException {
+    private LatticeElement createLatticeElement(Object config, Field field, Annotation widgetAnnotation, Component titleComponent, Component descriptionComponent) throws IllegalAccessException {
         Class<?> fieldType = field.getType();
 
         if (widgetAnnotation instanceof LatticeWidgetButton) {
@@ -443,9 +521,8 @@ class ElementReflection {
             if (KeyMapping.class.isAssignableFrom(fieldType)) {
                 KeyMapping keyMapping = (KeyMapping) field.get(config);
 
-                if (!keyMappings.contains(keyMapping)) {
-                    keyMappings.add(keyMapping);
-                }
+                KeyMappingListSupplier keyMappingListSupplier = this.keyMappingListSupplier;
+                keyMappingListSupplier.ensureRegistered(keyMapping);
 
                 if (latticeWidgetKeybind.allowModifiers()) {
                     throw new RuntimeException("Unable to create lattice option for field " + field.getName() + " in " + field.getDeclaringClass().getName() + ": KeyMapping does not support modifiers");
@@ -483,7 +560,7 @@ class ElementReflection {
 
                             List<Component> conflicts = new ArrayList<>();
 
-                            for (KeyMapping other : keyMappings) {
+                            for (KeyMapping other : keyMappingListSupplier.get()) {
                                 if (other != keyMapping && keyMapping.same(other)) {
                                     conflicts.add(Component.translatable(other.getName()));
                                 }
@@ -505,7 +582,7 @@ class ElementReflection {
         } else if (widgetAnnotation instanceof LatticeWidgetTextField latticeWidgetTextField) {
             int maxLength = latticeWidgetTextField.characterLimit();
             if (fieldType == String.class) {
-                return new LatticeElement(WidgetFunction.editBox(() -> {
+                var element = new LatticeElement(WidgetFunction.editBox(() -> {
                     try {
                         return (String) field.get(config);
                     } catch (IllegalAccessException e) {
@@ -517,7 +594,9 @@ class ElementReflection {
                     } catch (IllegalAccessException e) {
                         throw new RuntimeException(e);
                     }
-                }, maxLength), titleComponent, descriptionComponent).withShowTitleSeparately(true);
+                }, maxLength), titleComponent, descriptionComponent);
+                element.showTitleSeparately(true);
+                return element;
             } else {
                 throw new RuntimeException(fieldType + " isn't compatible with @LatticeWidgetTextField");
             }
@@ -525,7 +604,7 @@ class ElementReflection {
             int height = latticeWidgetTextArea.height();
             int characterLimit = latticeWidgetTextArea.characterLimit();
             if (fieldType == String.class) {
-                return new LatticeElement(WidgetFunction.multilineEditBox(() -> {
+                var element = new LatticeElement(WidgetFunction.multilineEditBox(() -> {
                     try {
                         return (String) field.get(config);
                     } catch (IllegalAccessException e) {
@@ -537,7 +616,9 @@ class ElementReflection {
                     } catch (IllegalAccessException e) {
                         throw new RuntimeException(e);
                     }
-                }, height, characterLimit), titleComponent, descriptionComponent).withShowTitleSeparately(true);
+                }, height, characterLimit), titleComponent, descriptionComponent);
+                element.showTitleSeparately(true);
+                return element;
             } else {
                 throw new RuntimeException(fieldType + " isn't compatible with @LatticeWidgetTextArea");
             }

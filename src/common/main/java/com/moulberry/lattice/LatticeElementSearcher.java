@@ -1,10 +1,8 @@
 package com.moulberry.lattice;
 
-import com.google.common.collect.Lists;
 import com.moulberry.lattice.element.LatticeElement;
 import com.moulberry.lattice.element.LatticeElements;
 import com.moulberry.lattice.widget.CategoryStringWidget;
-import it.unimi.dsi.fastutil.objects.Object2BooleanFunction;
 import it.unimi.dsi.fastutil.objects.Object2BooleanOpenHashMap;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
@@ -19,7 +17,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 
 @ApiStatus.Internal
-public class ElementSearcher {
+public class LatticeElementSearcher {
 
     private final LatticeElements root;
 
@@ -38,12 +36,14 @@ public class ElementSearcher {
     private String lastSearch = null;
     private final List<SearchedElement> searchedElements = new ArrayList<>();
     private List<AbstractWidget> searchedWidgets = null;
+    private final LatticeWidgetContext widgetContext;
 
     private Font lastWidgetFont = null;
     private int lastWidgetWidth = 0;
 
-    public ElementSearcher(LatticeElements root) {
+    public LatticeElementSearcher(LatticeElements root, LatticeWidgetContext widgetContext) {
         this.root = root;
+        this.widgetContext = widgetContext;
     }
 
     public void search(String search) {
@@ -156,6 +156,10 @@ public class ElementSearcher {
     }
 
     private static boolean matchesSearch(String search, LatticeElement option) {
+        if (!option.canBeSearched()) {
+            return false;
+        }
+
         String primary = option.searchKeyPrimary();
         if (primary != null && primary.contains(search)) {
             return true;
@@ -224,12 +228,15 @@ public class ElementSearcher {
                 }
             }
 
-            this.searchedWidgets.add(searchedElement.element.createWidget(font, title, description, width));
+            var widget = this.widgetContext.create(searchedElement.element, title, description, width);
+            if (widget != null) {
+                this.searchedWidgets.add(widget);
+            }
         }
 
         if (this.searchedWidgets.isEmpty()) {
-            String message = "No results found for '" + this.lastSearch + "'";
-            this.searchedWidgets.add(new StringWidget(width, font.lineHeight*3, Component.literal(message), font).alignCenter());
+            Component message = Component.translatable("lattice.no_results_found", Component.literal(this.lastSearch));
+            this.searchedWidgets.add(new StringWidget(width, font.lineHeight*3, message, font).alignCenter());
         }
 
         return this.searchedWidgets;

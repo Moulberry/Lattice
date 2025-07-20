@@ -1,5 +1,6 @@
 package com.moulberry.lattice.testmod;
 
+import com.moulberry.lattice.LatticeDynamicFrequency;
 import com.moulberry.lattice.annotation.LatticeCategory;
 import com.moulberry.lattice.annotation.constraint.LatticeDisableIf;
 import com.moulberry.lattice.annotation.constraint.LatticeFloatRange;
@@ -9,9 +10,13 @@ import com.moulberry.lattice.annotation.widget.*;
 import com.moulberry.lattice.annotation.LatticeOption;
 import com.moulberry.lattice.keybind.LatticeInputType;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 public class TestConfig {
+
+    @LatticeWidgetMessage
+    public transient Component message = Component.literal("Welcome to the Lattice test config!");
 
     @LatticeOption(title = "Root", description = "This is an option present at the root level. It should use the default category name 'General'", translate = false)
     @LatticeWidgetButton
@@ -106,26 +111,26 @@ public class TestConfig {
     public Dynamic dynamic = new Dynamic();
 
     public static class Dynamic {
-        @LatticeOption(title = "Disable following option", description = "If this is set to on, the following option will become disabled (requires reopening the config)", translate = false)
+        @LatticeOption(title = "Disable following option", description = "If this is set to on, the following option will become disabled", translate = false)
         @LatticeWidgetButton
         public boolean disableNext = false;
 
         @LatticeOption(title = "You can't do this to me!", translate = false)
         @LatticeWidgetButton
-        @LatticeDisableIf(function = "checkDisableNext")
+        @LatticeDisableIf(function = "checkDisableNext", frequency = LatticeDynamicFrequency.EVERY_TICK)
         public boolean test2 = false;
 
         private boolean checkDisableNext() {
             return this.disableNext;
         }
 
-        @LatticeOption(title = "Show following option", description = "If this is set to off, the following option will disappear (requires reopening the config)", translate = false)
+        @LatticeOption(title = "Show following option", description = "If this is set to off, the following option will disappear", translate = false)
         @LatticeWidgetButton
         public boolean showNext = true;
 
         @LatticeOption(title = "I don't feel so good...", translate = false)
         @LatticeWidgetButton
-        @LatticeHideIf(function = "checkShowNext")
+        @LatticeHideIf(function = "checkShowNext", frequency = LatticeDynamicFrequency.EVERY_TICK)
         public boolean test1 = false;
 
         private boolean checkShowNext() {

@@ -45,14 +45,10 @@ public class LatticeElements {
     }
 
     public static LatticeElements fromAnnotations(Component title, Object config) throws LatticeFieldToOptionException {
-        Options minecraftOptions = Minecraft.getInstance().options;
-        if (minecraftOptions == null) {
-            throw new RuntimeException("Minecraft options haven't been initialized yet!");
-        }
+        ElementReflection elementReflection = new ElementReflection();
 
         LatticeElements elements = new LatticeElements(title);
-        List<KeyMapping> keyMappings = new ArrayList<>(List.of(minecraftOptions.keyMappings));
-        ElementReflection.addElementsFromClass(config, elements, keyMappings);
+        elementReflection.addElementsFromClass(config, elements);
         return elements;
     }
 

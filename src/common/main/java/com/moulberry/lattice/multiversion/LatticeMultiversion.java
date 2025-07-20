@@ -33,7 +33,6 @@ public class LatticeMultiversion {
 
     public static void offsetZ(GuiGraphics guiGraphics, double z) {
         // Implemented by MixinOffsetZ on supported versions (<1.21.6)
-        throw new UnsupportedOperationException();
     }
 
 }

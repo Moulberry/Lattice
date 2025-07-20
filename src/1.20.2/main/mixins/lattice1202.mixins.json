@@ -3,7 +3,7 @@
   "minVersion": "0.8",
   "package": "com.moulberry.lattice.mixin.v1202",
   "compatibilityLevel": "JAVA_21",
-  "plugin": "com.moulberry.mixinconstraints.ConstraintsMixinPlugin",
+  "plugin": "com.moulberry.lattice.LatticeMixinConfigPlugin",
   "client": [
     "MixinDropdownWidget",
     "MixinLatticeConfigScreen",

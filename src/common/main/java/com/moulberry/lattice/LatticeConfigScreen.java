@@ -8,6 +8,7 @@ import com.moulberry.lattice.widget.SubcategoryButton;
 import com.moulberry.lattice.widget.WidgetWithText;
 import com.moulberry.lattice.widget.WidgetExtraFunctionality;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ComponentPath;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.*;
@@ -71,7 +72,11 @@ public class LatticeConfigScreen extends Screen {
 
     private EditBox searchBox = null;
     private boolean searching = false;
-    private final ElementSearcher elementSearcher;
+    private final LatticeElementSearcher elementSearcher;
+    private final LatticeWidgetContext widgetContext;
+
+    private boolean tickWidgetsOnPosition = false;
+    private Set<AbstractWidget> widgetsThatWereHiddenOnLastTick = new HashSet<>();
 
     public LatticeConfigScreen(LatticeElements options, @Nullable Runnable onClosed, @Nullable Screen closeTo) {
         super(options.title == null ? LatticeTextComponents.DEFAULT_CONFIG_NAME : options.title);
@@ -83,7 +88,8 @@ public class LatticeConfigScreen extends Screen {
             this.activeCategory = options.subcategories.get(0);
         }
 
-        this.elementSearcher = new ElementSearcher(options);
+        this.widgetContext = new LatticeWidgetContext(this.font, this.buttonWidth);
+        this.elementSearcher = new LatticeElementSearcher(options, this.widgetContext);
         this.onClosed = onClosed;
         this.closeTo = closeTo;
     }
@@ -101,6 +107,9 @@ public class LatticeConfigScreen extends Screen {
         this.buttonWidth -= ITEM_PADDING*2; // padding
         this.buttonWidth -= SCROLL_BAR_WIDTH + ITEM_PADDING; // scrollbar
 
+        this.widgetContext.setFont(this.font);
+        this.widgetContext.setWidth(this.buttonWidth);
+
         this.categoryContentHeight = 0;
         this.optionContentHeight = 0;
         this.searchContentHeight = 0;
@@ -112,6 +121,10 @@ public class LatticeConfigScreen extends Screen {
         // Search box
         this.searchBox = new EditBox(this.font, this.width/2 - 100, 22, 200, 20, this.searchBox, CommonComponents.EMPTY);
         this.searchBox.setResponder(searchString -> {
+            if (searchString.isBlank() && !this.searching) {
+                return;
+            }
+
             this.currentExtraFunctionalityWidget = null;
             this.scrollingCategoryList = false;
             this.scrollingOptionList = false;
@@ -166,11 +179,18 @@ public class LatticeConfigScreen extends Screen {
         this.searching = false;
         this.searchContentHeight = 0;
         this.searchScrollAmount = 0;
+        this.currentExtraFunctionalityWidget = null;
+        this.optionEntries.clear();
         this.activeCategory = category;
         this.setScrollToSubcategory(null);
 
         for (AbstractButton button : this.categoryButtons) {
             button.active = true;
+        }
+
+        if (this.activeCategory == null) {
+            this.positionOptionWidgets();
+            return;
         }
 
         AbstractButton buttonForConfig = this.buttonForCategory.get(category);
@@ -179,10 +199,11 @@ public class LatticeConfigScreen extends Screen {
         }
 
         // Create options
-        this.currentExtraFunctionalityWidget = null;
-        this.optionEntries.clear();
         for (LatticeElement option : this.activeCategory.options) {
-            this.optionEntries.add(option.createWidget(this.font, option.title(), null, this.buttonWidth));
+            var widget = this.widgetContext.create(option);
+            if (widget != null) {
+                this.optionEntries.add(widget);
+            }
         }
 
         if (this.activeCategory != this.rootCategory) {
@@ -194,7 +215,8 @@ public class LatticeConfigScreen extends Screen {
                 Component title = subcategory.getTitleOrDefault();
                 Component titleWithRightArrow = Component.empty().append(title).append(" \u25B6");
                 Component titleWithDownArrow = Component.empty().append(title).append(" \u25BC");
-                this.optionEntries.add(new SubcategoryButton(this.font, this.buttonWidth, 0, subcategory, this.openedSubcategories, titleWithRightArrow, titleWithDownArrow));
+                this.optionEntries.add(new SubcategoryButton(this.font, this.buttonWidth, 0, subcategory, this.openedSubcategories,
+                    this.widgetContext, titleWithRightArrow, titleWithDownArrow));
             }
         }
 
@@ -498,6 +520,10 @@ public class LatticeConfigScreen extends Screen {
     public void tick() {
         super.tick();
         this.suppressInputThisTick = false;
+        if (!this.tickWidgetsOnPosition && this.widgetContext.hasAnyOnTickConditions()) {
+            this.tickWidgetsOnPosition = true;
+            this.widgetsThatWereHiddenOnLastTick.clear();
+        }
     }
 
     @Override
@@ -561,7 +587,17 @@ public class LatticeConfigScreen extends Screen {
             return true;
         }
 
-        return super.keyPressed(keysym, scancode, mods);
+        if (super.keyPressed(keysym, scancode, mods)) {
+            return true;
+        }
+
+        int modifier = Minecraft.ON_OSX ? GLFW.GLFW_MOD_SUPER : GLFW.GLFW_MOD_CONTROL;
+        if (keysym == GLFW.GLFW_KEY_F && (mods & modifier) != 0) {
+            this.setFocused(this.searchBox);
+            return true;
+        }
+
+        return false;
     }
 
     @Override
@@ -757,6 +793,15 @@ public class LatticeConfigScreen extends Screen {
         int currentY = TOP_PADDING + ITEM_PADDING;
 
         for (AbstractWidget widget : widgets) {
+            if (this.tickWidgetsOnPosition) {
+                if (this.widgetContext.tickAndGetIsHidden(widget)) {
+                    this.widgetsThatWereHiddenOnLastTick.add(widget);
+                    continue;
+                }
+            } else if (this.widgetsThatWereHiddenOnLastTick.contains(widget)) {
+                continue;
+            }
+
             int extraOffset = 0;
             if (widget instanceof StringWidget) {
                 extraOffset += 2;
@@ -770,6 +815,11 @@ public class LatticeConfigScreen extends Screen {
 
         this.searchContentHeight = currentY - TOP_PADDING;
         this.searchScrollAmount = Math.min(this.searchScrollAmount, this.maxScroll(this.searchContentHeight));
+
+        if (this.tickWidgetsOnPosition) {
+            this.tickWidgetsOnPosition = false;
+            this.widgetContext.finishTick();
+        }
     }
 
     private void positionCategoryWidgets() {
@@ -818,6 +868,11 @@ public class LatticeConfigScreen extends Screen {
 
         this.optionContentHeight = currentY - TOP_PADDING;
         this.optionScrollAmount = Math.min(this.optionScrollAmount, this.maxScroll(this.optionContentHeight));
+
+        if (this.tickWidgetsOnPosition) {
+            this.tickWidgetsOnPosition = false;
+            this.widgetContext.finishTick();
+        }
     }
 
     private int positionAndRenderOptionWidgetsRecursive(@Nullable GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int x, List<AbstractWidget> widgets, int currentY) {
@@ -825,6 +880,15 @@ public class LatticeConfigScreen extends Screen {
             return currentY;
         }
         for (AbstractWidget widget : widgets) {
+            if (this.tickWidgetsOnPosition) {
+                if (this.widgetContext.tickAndGetIsHidden(widget)) {
+                    this.widgetsThatWereHiddenOnLastTick.add(widget);
+                    continue;
+                }
+            } else if (this.widgetsThatWereHiddenOnLastTick.contains(widget)) {
+                continue;
+            }
+
             widget.setPosition(x, currentY - (int) this.optionScrollAmount);
             if (guiGraphics != null) {
                 widget.render(guiGraphics, mouseX, mouseY, partialTick);

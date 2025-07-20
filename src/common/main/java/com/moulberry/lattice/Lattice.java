@@ -27,8 +27,7 @@ public class Lattice {
     private static void performWidgetTest(LatticeElements elements) {
         Font font = Minecraft.getInstance().font;
         for (LatticeElement option : elements.options) {
-            AbstractWidget widget = option.createInnerWidget(font, Component.literal("Title"), null, 100);
-            Objects.requireNonNull(widget);
+            option.createInnerWidget(font, Component.literal("Title"), null, 100);
         }
         for (LatticeElements subcategory : elements.subcategories) {
             performWidgetTest(subcategory);

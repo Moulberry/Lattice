@@ -1,7 +1,14 @@
 import earth.terrarium.cloche.api.target.CommonTarget
+import com.vanniktech.maven.publish.JavaLibrary
+import com.vanniktech.maven.publish.JavadocJar
+import com.vanniktech.maven.publish.Platform
+import com.vanniktech.maven.publish.SonatypeHost
+import earth.terrarium.cloche.TargetAttributes
+import org.gradle.nativeplatform.toolchain.internal.gcc.TargetPlatformConfiguration
 
 plugins {
     id("earth.terrarium.cloche") version "0.11.6"
+    id("com.vanniktech.maven.publish") version("0.28.0") // `maven-publish` doesn't support new maven central
 }
 
 version = project.version
@@ -56,6 +63,12 @@ cloche {
                 exclude(group = "org.slf4j")
             }
         }
+
+        mixins.from("src/1.20.1/main/mixins/lattice1201.mixins.json")
+        mixins.from("src/1.20.2/main/mixins/lattice1202.mixins.json")
+        mixins.from("src/1.20.4/main/mixins/lattice1204.mixins.json")
+        mixins.from("src/1.20.6/main/mixins/lattice1206.mixins.json")
+        mixins.from("src/1.21.6/main/mixins/lattice1216.mixins.json")
     }
 
     val commonMinecraftVersion: Attribute<String> = Attribute.of("com.moulberry.commonMinecraftVersion", String::class.java)
@@ -65,14 +78,6 @@ cloche {
             attributes {
                 attribute(commonMinecraftVersion, version)
             }
-
-            dependencies {
-                implementation("com.moulberry:mixinconstraints:1.0.9") {
-                    exclude(group = "org.slf4j")
-                }
-            }
-
-            mixins.from("src/${version}/main/mixins/lattice${version.replace(".", "")}.mixins.json")
         }
     }
 
@@ -85,13 +90,6 @@ cloche {
 
             includedClient()
 
-            dependencies {
-                implementation("com.moulberry:mixinconstraints:1.0.9") {
-                    exclude(group = "org.slf4j")
-                }
-                include("com.moulberry:mixinconstraints:1.0.9")
-            }
-
             fabricJarOutputs.add(finalJar)
         }
     }
@@ -103,13 +101,6 @@ cloche {
 
             dependsOn(commonTarget)
 
-            dependencies {
-                implementation("com.moulberry:mixinconstraints:1.0.9") {
-                    exclude(group = "org.slf4j")
-                }
-                include("com.moulberry:mixinconstraints:1.0.9")
-            }
-
             forgeLikeJarOutputs.add(finalJar)
         }
     }
@@ -120,13 +111,6 @@ cloche {
             loaderVersion = neoforgeVersion
 
             dependsOn(commonTarget)
-
-            dependencies {
-                implementation("com.moulberry:mixinconstraints:1.0.9") {
-                    exclude(group = "org.slf4j")
-                }
-                include("com.moulberry:mixinconstraints:1.0.9")
-            }
 
             forgeLikeJarOutputs.add(finalJar)
         }
@@ -179,6 +163,90 @@ configurations.all {
     resolutionStrategy.capabilitiesResolution {
         withCapability("cpw.mods:modlauncher") {
             selectHighestVersion()
+        }
+    }
+}
+
+fun baseFabricConfiguration(configuration: Configuration) {
+    configuration.outgoing.capability("com.moulberry:lattice:${rootProject.version}")
+    configuration.outgoing.artifact(tasks.named<Jar>("buildMergedFabric").get())
+
+    configuration.attributes.attribute(TargetAttributes.MOD_LOADER, "fabric")
+    configuration.attributes.attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.LIBRARY))
+    configuration.attributes.attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.EXTERNAL))
+    configuration.attributes.attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 17)
+    configuration.attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.JAR))
+}
+
+var fabricConfigurationApi = configurations.create("fabricApi") {
+    baseFabricConfiguration(this)
+    attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_API))
+}
+
+var fabricConfigurationRuntime = configurations.create("fabricRuntime") {
+    baseFabricConfiguration(this)
+    attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+}
+
+val javaComponent = components.findByName("java") as AdhocComponentWithVariants
+
+// Hack to remove all cloche variants from publication
+rootProject.configurations.forEach {
+    try {
+        javaComponent.withVariantsFromConfiguration(it) {
+            skip()
+        }
+    } catch (ignored: Exception) {}
+}
+
+javaComponent.addVariantsFromConfiguration(fabricConfigurationApi) {
+    mapToMavenScope("runtime")
+    mapToOptional()
+}
+javaComponent.addVariantsFromConfiguration(fabricConfigurationRuntime) {
+    mapToMavenScope("runtime")
+    mapToOptional()
+}
+
+mavenPublishing {
+    configure(JavaLibrary(JavadocJar.Javadoc(), true))
+
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+
+    signAllPublications()
+
+    coordinates("com.moulberry", "lattice", version.toString())
+
+    pom {
+        name = "Lattice"
+        description = "Library for creating Minecraft configuration GUIs"
+        url = "https://github.com/Moulberry/Lattice"
+        inceptionYear = "2025"
+        packaging = "jar"
+
+        licenses {
+            license {
+                name = "MIT License"
+                url = "https://opensource.org/license/mit"
+            }
+        }
+
+        developers {
+            developer {
+                name = "Moulberry"
+                url = "https://github.com/Moulberry"
+            }
+        }
+
+        issueManagement {
+            system = "GitHub"
+            url = "https://github.com/Moulberry/Lattice/issues"
+        }
+
+        scm {
+            url = "https://github.com/Moulberry/Lattice/"
+            connection = "scm:git:git://github.com/Moulberry/Lattice.git"
+            developerConnection = "scm:git:ssh://git@github.com/Moulberry/Lattice.git"
         }
     }
 }

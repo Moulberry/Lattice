@@ -46,7 +46,6 @@ cloche {
                 // note: need to put lattice-neoforge.jar in mods folder... can't figure out a way to properly include
                 // it as jarjar due to missing coordinates
                 compileOnly(rootProject.tasks.named<Jar>("buildMergedForgelike").get().outputs.files)
-                include("com.moulberry:mixinconstraints:1.0.9")
             }
         }
     }

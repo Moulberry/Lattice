@@ -1,12 +1,12 @@
 package com.moulberry.lattice.element;
 
+import com.moulberry.lattice.LatticeDynamicFrequency;
 import com.moulberry.lattice.WidgetFunction;
 import com.moulberry.lattice.widget.WidgetWithText;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.MultiLineTextWidget;
-import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.ApiStatus;
@@ -15,7 +15,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Locale;
 
-public final class LatticeElement implements WidgetFunction {
+public final class LatticeElement {
     private final WidgetFunction widgetFunction;
 
     private Language lastLanguage = null;
@@ -25,7 +25,10 @@ public final class LatticeElement implements WidgetFunction {
     private final Component title;
     private final Component description;
     private boolean showTitleSeparately = false;
-    private boolean disabled = false;
+    private boolean canBeSearched = true;
+
+    private LatticeDynamicCondition disabledDynamic = null;
+    private LatticeDynamicCondition hiddenDynamic = null;
 
     public LatticeElement(WidgetFunction widgetFunction, @NotNull Component title, @Nullable Component description) {
         this.widgetFunction = widgetFunction;
@@ -43,46 +46,40 @@ public final class LatticeElement implements WidgetFunction {
         return this.description;
     }
 
-    public LatticeElement withShowTitleSeparately(boolean showTitleSeparately) {
+    public void showTitleSeparately(boolean showTitleSeparately) {
         this.showTitleSeparately = showTitleSeparately;
-        return this;
     }
 
-    public LatticeElement withDisabled(boolean disabled) {
-        this.disabled = disabled;
-        return this;
+    public void canBeSearched(boolean canBeSearched) {
+        this.canBeSearched = canBeSearched;
     }
 
-    @Override
-    public @NotNull AbstractWidget createWidget(Font font, @NotNull Component title, @Nullable Component description, int width) {
-        description = description == null ? this.description : description;
+    public void disabledDynamic(LatticeDynamicCondition disabledDynamic) {
+        this.disabledDynamic = disabledDynamic;
+    }
 
-        boolean showTitleSeparately = this.showTitleSeparately;
+    public void hiddenDynamic(LatticeDynamicCondition hiddenDynamic) {
+        this.hiddenDynamic = hiddenDynamic;
+    }
 
-        AbstractWidget widget;
-        try {
-            widget = this.createInnerWidget(font, title, description, width);
-            if (this.disabled) {
-                widget.active = false;
-            }
-        } catch (Throwable t) {
-            t.printStackTrace();
-            Component errorMsg = Component.literal("An unexpected error was encountered while trying to construct this widget. See logs for stacktrace").withStyle(ChatFormatting.RED);
-            MultiLineTextWidget multiLineTextWidget = new MultiLineTextWidget(errorMsg, font);
-            multiLineTextWidget.setMaxWidth(width);
-            widget = multiLineTextWidget;
-            showTitleSeparately = true;
-        }
+    public boolean showTitleSeparately() {
+        return this.showTitleSeparately;
+    }
 
-        if (description != null || showTitleSeparately) {
-            return new WidgetWithText(widget, showTitleSeparately ? title : null, description, font);
-        } else {
-            return widget;
-        }
+    public boolean canBeSearched() {
+        return canBeSearched;
+    }
+
+    public LatticeDynamicCondition disabledDynamic() {
+        return this.disabledDynamic;
+    }
+
+    public LatticeDynamicCondition hiddenDynamic() {
+        return this.hiddenDynamic;
     }
 
     @ApiStatus.Internal
-    public AbstractWidget createInnerWidget(Font font, @NotNull Component title, @Nullable Component description, int width) {
+    public @Nullable AbstractWidget createInnerWidget(Font font, @NotNull Component title, @Nullable Component description, int width) {
         return this.widgetFunction.createWidget(font, title, description, width);
     }
 

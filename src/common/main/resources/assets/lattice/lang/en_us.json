@@ -1,5 +1,6 @@
 {
   "lattice.default_config_name": "Configuration",
   "lattice.root_category_name": "General",
-  "lattice.unnamed_category": "Unnamed Category"
+  "lattice.unnamed_category": "Unnamed Category",
+  "lattice.no_results_found": "No results found for '%s'"
 }
