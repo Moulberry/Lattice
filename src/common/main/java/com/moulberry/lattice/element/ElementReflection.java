@@ -161,6 +161,7 @@ public class ElementReflection {
             LatticeElement latticeElement = new LatticeElement(WidgetFunction.string(latticeWidgetMessage.maxRows(), latticeWidgetMessage.centered()), message, null);
             latticeElement.disabledDynamic(disableDynamic);
             latticeElement.hiddenDynamic(hideDynamic);
+            latticeElement.canBeSearched(false);
             elements.options.add(latticeElement);
             return;
         }
