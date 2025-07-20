@@ -1,10 +1,13 @@
 package com.moulberry.lattice;
 
-import net.minecraft.SharedConstants;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -13,20 +16,14 @@ import java.util.Set;
 public class LatticeMixinConfigPlugin implements IMixinConfigPlugin {
 
     private String mixinPackage = null;
+    private static int dataVersion = -1;
 
-    private static final Map<String, Integer> protocolVersionForMixin = Map.ofEntries(
+    private static final Map<String, Integer> dataVersionForMixin = Map.ofEntries(
         Map.entry("v1201", 0),
-        Map.entry("v1202", 764),
-        Map.entry("v1204", 765),
-        Map.entry("v1206", 766),
-        Map.entry("v1216", 771)
-    );
-    private static final Map<String, Integer> snapshotProtocolVersionForMixin = Map.ofEntries(
-        Map.entry("v1201", 0x40000000),
-        Map.entry("v1202", 0x40000090),
-        Map.entry("v1204", 0x4000009A),
-        Map.entry("v1206", 0x400000A9),
-        Map.entry("v1216", 0x400000F5)
+        Map.entry("v1202", 3572),
+        Map.entry("v1204", 3693),
+        Map.entry("v1206", 3829),
+        Map.entry("v1216", 4430)
     );
 
     private static final Map<String, List<String>> versionedMixinMap = Map.ofEntries(
@@ -44,6 +41,22 @@ public class LatticeMixinConfigPlugin implements IMixinConfigPlugin {
         Objects.requireNonNull(this.mixinPackage);
 
         if (mixinClassName.startsWith(this.mixinPackage + ".")) {
+            if (dataVersion == -1) {
+                try {
+                    try (InputStream inputStream = LatticeMixinConfigPlugin.class.getResourceAsStream("/version.json")) {
+                        if (inputStream == null) {
+                            throw new RuntimeException("/version.json is not present!");
+                        }
+                        try (InputStreamReader reader = new InputStreamReader(inputStream)) {
+                            JsonObject jsonObject = new Gson().fromJson(reader, JsonObject.class);
+                            dataVersion = jsonObject.get("world_version").getAsInt();
+                        }
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException("Unable to parse Minecraft version information", e);
+                }
+            }
+
             String mixinName = mixinClassName.substring(this.mixinPackage.length() + 1);
             List<String> versionsForMixin = versionedMixinMap.get(mixinName);
 
@@ -51,26 +64,19 @@ public class LatticeMixinConfigPlugin implements IMixinConfigPlugin {
                 throw new RuntimeException("Missing versions for " + mixinName);
             }
 
-            int currentProtocolVersion = SharedConstants.getProtocolVersion();
-
             Integer latestApplicableVersion = null;
             String applyVersionName = null;
             boolean found = false;
 
             for (String mixinVersionName : versionsForMixin) {
-                int mixinProtocolVersion;
-                if (currentProtocolVersion > 0x40000000) {
-                    mixinProtocolVersion = snapshotProtocolVersionForMixin.get(mixinVersionName);
-                } else {
-                    mixinProtocolVersion = protocolVersionForMixin.get(mixinVersionName);
-                }
+                int mixinDataVersion = dataVersionForMixin.get(mixinVersionName);
 
                 if (this.mixinPackage.endsWith("." + mixinVersionName)) {
                     found = true;
                 }
 
-                if (mixinProtocolVersion <= currentProtocolVersion && (latestApplicableVersion == null || mixinProtocolVersion > latestApplicableVersion)) {
-                    latestApplicableVersion = mixinProtocolVersion;
+                if (mixinDataVersion <= this.dataVersion && (latestApplicableVersion == null || mixinDataVersion > latestApplicableVersion)) {
+                    latestApplicableVersion = mixinDataVersion;
                     applyVersionName = mixinVersionName;
                 }
             }
