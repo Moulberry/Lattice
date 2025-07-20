@@ -112,6 +112,7 @@ public class ElementReflection {
         if ((field.getModifiers() & Modifier.STATIC) != 0) {
             return;
         }
+        field.trySetAccessible();
 
         LatticeDynamicCondition hideDynamic = null;
 
