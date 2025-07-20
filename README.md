@@ -57,5 +57,19 @@ if (FabricLoader.getInstance().isDevelopmentEnvironment()) {
 }
 ```
 
+# Screenshots
+
+## Numbers (Gui Scale 2)
+![Numbers](https://raw.githubusercontent.com/Moulberry/Lattice/refs/heads/master/screenshots/numbers_guiscale2.png)
+
+## Enums (Gui Scale Auto)
+![Enums](https://raw.githubusercontent.com/Moulberry/Lattice/refs/heads/master/screenshots/enums_guiscaleauto.png)
+
+## Subcategories
+![Subcategories](https://raw.githubusercontent.com/Moulberry/Lattice/refs/heads/master/screenshots/subcategories.png)
+
+## Searching
+![Searching](https://raw.githubusercontent.com/Moulberry/Lattice/refs/heads/master/screenshots/searching.png)
+
 # License
 The library is available under the MIT license.
