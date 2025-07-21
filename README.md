@@ -9,7 +9,7 @@ Lattice is available through Maven Central.
 __Gradle__
 ```groovy
 dependencies {
-    include(modImplementation("com.moulberry:lattice:1.2.6")) {
+    include(modImplementation("com.moulberry:lattice:1.2.7")) {
         attributes {
             attribute(Attribute.of("earth.terrarium.cloche.modLoader", String), "fabric")
         }
