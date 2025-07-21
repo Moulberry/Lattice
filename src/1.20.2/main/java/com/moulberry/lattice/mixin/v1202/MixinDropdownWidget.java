@@ -1,7 +1,6 @@
 package com.moulberry.lattice.mixin.v1202;
 
 import com.moulberry.lattice.widget.DropdownWidget;
-import com.moulberry.mixinconstraints.annotations.IfMinecraftVersion;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -14,7 +13,6 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 @Mixin(DropdownWidget.class)
-@IfMinecraftVersion(minVersion = "1.20.2", maxVersion = "1.20.2")
 public class MixinDropdownWidget {
 
     /**

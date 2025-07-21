@@ -59,9 +59,6 @@ cloche {
     common {
         dependencies {
             compileOnly("org.jetbrains:annotations:23.0.0")
-            implementation("com.moulberry:mixinconstraints:1.0.9") {
-                exclude(group = "org.slf4j")
-            }
         }
 
         mixins.from("src/1.20.1/main/mixins/lattice1201.mixins.json")

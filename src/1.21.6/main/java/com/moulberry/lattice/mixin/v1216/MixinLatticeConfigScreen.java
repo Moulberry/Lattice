@@ -1,7 +1,6 @@
 package com.moulberry.lattice.mixin.v1216;
 
 import com.moulberry.lattice.LatticeConfigScreen;
-import com.moulberry.mixinconstraints.annotations.IfMinecraftVersion;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -11,7 +10,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@IfMinecraftVersion(minVersion = "1.21.6")
 @Mixin(LatticeConfigScreen.class)
 public abstract class MixinLatticeConfigScreen extends Screen {
 

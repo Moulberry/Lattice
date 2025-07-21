@@ -1,7 +1,6 @@
 package com.moulberry.lattice.mixin.v1202;
 
 import com.moulberry.lattice.widget.WidgetWithText;
-import com.moulberry.mixinconstraints.annotations.IfMinecraftVersion;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Final;
@@ -9,7 +8,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 
 @Mixin(WidgetWithText.class)
-@IfMinecraftVersion(minVersion = "1.20.2")
 public abstract class MixinWidgetWithText extends AbstractWidget {
 
     @Shadow @Final public AbstractWidget widget;

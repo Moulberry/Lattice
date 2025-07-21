@@ -1,7 +1,6 @@
 package com.moulberry.lattice.mixin.v1201.multiversion;
 
 import com.moulberry.lattice.multiversion.LatticeMultiversion;
-import com.moulberry.mixinconstraints.annotations.IfMinecraftVersion;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.MultiLineEditBox;
 import net.minecraft.network.chat.CommonComponents;
@@ -10,7 +9,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 
 @Mixin(LatticeMultiversion.class)
-@IfMinecraftVersion(maxVersion = "1.21.5")
 public class MixinNewMultiLineEditBox {
 
     /**
