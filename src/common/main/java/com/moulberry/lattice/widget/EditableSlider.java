@@ -5,9 +5,11 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.Objects;
@@ -22,6 +24,7 @@ public abstract class EditableSlider<T> extends AbstractSliderButton {
     private T realValue;
 
     private String formattingString = null;
+    private boolean translateFormattingString = false;
 
     public EditableSlider(int x, int y, int width, int height, Component title, Font font, boolean allowManualInput, T initial) {
         super(x, y, width, height, CommonComponents.EMPTY, 0);
@@ -39,9 +42,14 @@ public abstract class EditableSlider<T> extends AbstractSliderButton {
     public abstract T clampValue(T value);
     public abstract void setValue(T value);
 
-    public void setFormattingString(String formattingString) {
-        if (!Objects.equals(this.formattingString, formattingString)) {
+    public void setFormattingString(@Nullable String formattingString) {
+        this.setFormattingString(formattingString, false);
+    }
+
+    public void setFormattingString(@Nullable String formattingString, boolean translate) {
+        if (!Objects.equals(this.formattingString, formattingString) || (formattingString != null && this.translateFormattingString != translate)) {
             this.formattingString = formattingString;
+            this.translateFormattingString = translate;
             this.updateMessage();
         }
     }
@@ -145,7 +153,11 @@ public abstract class EditableSlider<T> extends AbstractSliderButton {
     protected void updateMessage() {
         Object formatted = this.realValue;
         if (this.formattingString != null) {
-            formatted = String.format(this.formattingString, this.realValue);
+            if (this.translateFormattingString) {
+                formatted = I18n.get(this.formattingString, this.realValue);
+            } else {
+                formatted = String.format(this.formattingString, this.realValue);
+            }
         }
         this.setMessage(Component.translatable("options.generic_value", this.title, formatted));
     }

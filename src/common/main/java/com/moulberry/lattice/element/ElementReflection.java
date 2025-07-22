@@ -265,16 +265,15 @@ public class ElementReflection {
         Class<?> fieldType = field.getType();
 
         String formatting;
+        boolean translateFormatting;
 
         LatticeFormatValues latticeFormatValues = field.getDeclaredAnnotation(LatticeFormatValues.class);
         if (latticeFormatValues != null) {
-            if (latticeFormatValues.translate()) {
-                formatting = I18n.get(latticeFormatValues.formattingString());
-            } else {
-                formatting = latticeFormatValues.formattingString();
-            }
+            formatting = latticeFormatValues.formattingString();
+            translateFormatting = latticeFormatValues.translate();
         } else {
             formatting = null;
+            translateFormatting = false;
         }
 
         if (widgetAnnotation instanceof LatticeWidgetButton) {
@@ -390,7 +389,7 @@ public class ElementReflection {
                                 }
                             }
                         };
-                        editableSlider.setFormattingString(formatting);
+                        editableSlider.setFormattingString(formatting, translateFormatting);
                         return editableSlider;
                     } catch (IllegalAccessException e) {
                         throw new RuntimeException(e);
@@ -489,7 +488,7 @@ public class ElementReflection {
                                 }
                             }
                         };
-                        editableSlider.setFormattingString(formatting);
+                        editableSlider.setFormattingString(formatting, translateFormatting);
                         return editableSlider;
                     } catch (IllegalAccessException e) {
                         throw new RuntimeException(e);

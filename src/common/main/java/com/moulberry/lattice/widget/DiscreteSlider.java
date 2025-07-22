@@ -1,6 +1,7 @@
 package com.moulberry.lattice.widget;
 
 import net.minecraft.client.gui.components.AbstractSliderButton;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.ApiStatus;
@@ -17,6 +18,7 @@ public abstract class DiscreteSlider<T> extends AbstractSliderButton {
     private final T[] values;
 
     private String formattingString = null;
+    private boolean translateFormattingString = false;
 
     public DiscreteSlider(int x, int y, int width, int height, Component title, T initialValue, T... values) {
         super(x, y, width, height, CommonComponents.EMPTY, calculateInitialIndex(initialValue, values));
@@ -27,8 +29,13 @@ public abstract class DiscreteSlider<T> extends AbstractSliderButton {
     }
 
     public void setFormattingString(@Nullable String formattingString) {
-        if (!Objects.equals(this.formattingString, formattingString)) {
+        this.setFormattingString(formattingString, false);
+    }
+
+    public void setFormattingString(@Nullable String formattingString, boolean translate) {
+        if (!Objects.equals(this.formattingString, formattingString) || (formattingString != null && this.translateFormattingString != translate)) {
             this.formattingString = formattingString;
+            this.translateFormattingString = translate;
             this.updateMessage();
         }
     }
@@ -43,7 +50,11 @@ public abstract class DiscreteSlider<T> extends AbstractSliderButton {
     protected void updateMessage() {
         Object formatted = this.currentValue;
         if (this.formattingString != null) {
-            formatted = String.format(this.formattingString, this.currentValue);
+            if (this.translateFormattingString) {
+                formatted = I18n.get(this.formattingString, this.currentValue);
+            } else {
+                formatted = String.format(this.formattingString, this.currentValue);
+            }
         }
         this.setMessage(Component.translatable("options.generic_value", this.title, formatted));
     }
