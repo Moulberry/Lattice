@@ -199,7 +199,7 @@ public class ElementReflection {
 
         String descriptionString = latticeOption.description();
         Component descriptionComponent = null;
-        if (descriptionString != null) {
+        if (descriptionString != null && !descriptionString.isEmpty()) {
             descriptionString = descriptionString.replace("!!", titleString);
             descriptionComponent = translate ? Component.translatable(descriptionString) : Component.literal(descriptionString);
         }
