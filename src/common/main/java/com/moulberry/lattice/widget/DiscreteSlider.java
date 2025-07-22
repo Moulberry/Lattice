@@ -4,8 +4,10 @@ import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 @ApiStatus.Internal
 public abstract class DiscreteSlider<T> extends AbstractSliderButton {
@@ -14,12 +16,21 @@ public abstract class DiscreteSlider<T> extends AbstractSliderButton {
     private T currentValue;
     private final T[] values;
 
+    private String formattingString = null;
+
     public DiscreteSlider(int x, int y, int width, int height, Component title, T initialValue, T... values) {
         super(x, y, width, height, CommonComponents.EMPTY, calculateInitialIndex(initialValue, values));
         this.title = title;
         this.currentValue = initialValue;
         this.values = values;
         this.updateMessage();
+    }
+
+    public void setFormattingString(@Nullable String formattingString) {
+        if (!Objects.equals(this.formattingString, formattingString)) {
+            this.formattingString = formattingString;
+            this.updateMessage();
+        }
     }
 
     public abstract void setValue(T value);
@@ -30,7 +41,11 @@ public abstract class DiscreteSlider<T> extends AbstractSliderButton {
 
     @Override
     protected void updateMessage() {
-        this.setMessage(Component.translatable("options.generic_value", this.title, this.currentValue));
+        Object formatted = this.currentValue;
+        if (this.formattingString != null) {
+            formatted = String.format(this.formattingString, this.currentValue);
+        }
+        this.setMessage(Component.translatable("options.generic_value", this.title, formatted));
     }
 
     @Override

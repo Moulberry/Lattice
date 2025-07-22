@@ -5,9 +5,12 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.ApiStatus;
 import org.lwjgl.glfw.GLFW;
+
+import java.util.Objects;
 
 @ApiStatus.Internal
 public abstract class EditableSlider<T> extends AbstractSliderButton {
@@ -18,13 +21,16 @@ public abstract class EditableSlider<T> extends AbstractSliderButton {
     private long lastEditBoxDefocusMillis = 0;
     private T realValue;
 
+    private String formattingString = null;
+
     public EditableSlider(int x, int y, int width, int height, Component title, Font font, boolean allowManualInput, T initial) {
-        super(x, y, width, height, Component.translatable("options.generic_value", title, initial), 0);
+        super(x, y, width, height, CommonComponents.EMPTY, 0);
         this.value = toSliderRange(initial);
         this.editBox = new EditBox(font, x, y, width, height, title);
         this.title = title;
         this.allowManualInput = allowManualInput;
         this.realValue = initial;
+        this.updateMessage();
     }
 
     public abstract double toSliderRange(T value);
@@ -32,6 +38,13 @@ public abstract class EditableSlider<T> extends AbstractSliderButton {
     public abstract T fromString(String value);
     public abstract T clampValue(T value);
     public abstract void setValue(T value);
+
+    public void setFormattingString(String formattingString) {
+        if (!Objects.equals(this.formattingString, formattingString)) {
+            this.formattingString = formattingString;
+            this.updateMessage();
+        }
+    }
 
     @Override
     public void renderWidget(GuiGraphics guiGraphics, int i, int j, float f) {
@@ -130,7 +143,11 @@ public abstract class EditableSlider<T> extends AbstractSliderButton {
 
     @Override
     protected void updateMessage() {
-        this.setMessage(Component.translatable("options.generic_value", this.title, this.realValue));
+        Object formatted = this.realValue;
+        if (this.formattingString != null) {
+            formatted = String.format(this.formattingString, this.realValue);
+        }
+        this.setMessage(Component.translatable("options.generic_value", this.title, formatted));
     }
 
     @Override

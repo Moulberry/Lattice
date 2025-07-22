@@ -1,6 +1,9 @@
 package com.moulberry.lattice.element;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.moulberry.lattice.annotation.LatticeFormatValues;
+import com.moulberry.lattice.annotation.constraint.LatticeEnableIf;
+import com.moulberry.lattice.annotation.constraint.LatticeShowIf;
 import com.moulberry.lattice.widget.EditableSlider;
 import com.moulberry.lattice.widget.KeybindButton;
 import com.moulberry.lattice.WidgetFunction;
@@ -18,6 +21,7 @@ import com.moulberry.lattice.widget.DropdownWidget;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.ApiStatus;
 
@@ -117,16 +121,32 @@ public class ElementReflection {
         LatticeDynamicCondition hideDynamic = null;
 
         LatticeHideIf latticeHideIf = field.getDeclaredAnnotation(LatticeHideIf.class);
+        LatticeShowIf latticeShowIf = field.getDeclaredAnnotation(LatticeShowIf.class);
+        if (latticeHideIf != null && latticeShowIf != null) {
+            throw new RuntimeException("Can't have both @LatticeHideIf and @LatticeShowIf");
+        }
         if (latticeHideIf != null) {
             BooleanSupplier supplier = getOrCreateCondition(config, latticeHideIf, latticeHideIf.function());
             hideDynamic = new LatticeDynamicCondition(supplier, latticeHideIf.frequency());
         }
+        if (latticeShowIf != null) {
+            BooleanSupplier supplier = getOrCreateCondition(config, latticeShowIf, latticeShowIf.function());
+            hideDynamic = new LatticeDynamicCondition(() -> !supplier.getAsBoolean(), latticeShowIf.frequency());
+        }
 
         LatticeDynamicCondition disableDynamic = null;
         LatticeDisableIf latticeDisableIf = field.getDeclaredAnnotation(LatticeDisableIf.class);
+        LatticeEnableIf latticeEnableIf = field.getDeclaredAnnotation(LatticeEnableIf.class);
+        if (latticeDisableIf != null && latticeEnableIf != null) {
+            throw new RuntimeException("Can't have both @LatticeDisableIf and @LatticeEnableIf");
+        }
         if (latticeDisableIf != null) {
             BooleanSupplier supplier = getOrCreateCondition(config, latticeDisableIf, latticeDisableIf.function());
             disableDynamic = new LatticeDynamicCondition(supplier, latticeDisableIf.frequency());
+        }
+        if (latticeEnableIf != null) {
+            BooleanSupplier supplier = getOrCreateCondition(config, latticeEnableIf, latticeEnableIf.function());
+            disableDynamic = new LatticeDynamicCondition(() -> !supplier.getAsBoolean(), latticeEnableIf.frequency());
         }
 
         LatticeCategory latticeCategory = field.getDeclaredAnnotation(LatticeCategory.class);
@@ -244,6 +264,19 @@ public class ElementReflection {
     private LatticeElement createLatticeElement(Object config, Field field, Annotation widgetAnnotation, Component titleComponent, Component descriptionComponent) throws IllegalAccessException {
         Class<?> fieldType = field.getType();
 
+        String formatting;
+
+        LatticeFormatValues latticeFormatValues = field.getDeclaredAnnotation(LatticeFormatValues.class);
+        if (latticeFormatValues != null) {
+            if (latticeFormatValues.translate()) {
+                formatting = I18n.get(latticeFormatValues.formattingString());
+            } else {
+                formatting = latticeFormatValues.formattingString();
+            }
+        } else {
+            formatting = null;
+        }
+
         if (widgetAnnotation instanceof LatticeWidgetButton) {
             checkForUnexpectedAnnotations(field, LatticeWidgetButton.class);
 
@@ -321,7 +354,7 @@ public class ElementReflection {
                     try {
                         int initialValue = field.getInt(config);
 
-                        return new EditableSlider<>(0, 0, width, 20, title, font, allowAlternativeInput, initialValue) {
+                        EditableSlider<?> editableSlider = new EditableSlider<>(0, 0, width, 20, title, font, allowAlternativeInput, initialValue) {
                             @Override
                             public double toSliderRange(Integer value) {
                                 return (value - min) / (double) (max - min);
@@ -357,6 +390,8 @@ public class ElementReflection {
                                 }
                             }
                         };
+                        editableSlider.setFormattingString(formatting);
+                        return editableSlider;
                     } catch (IllegalAccessException e) {
                         throw new RuntimeException(e);
                     }
@@ -409,7 +444,7 @@ public class ElementReflection {
                             }
                         }
 
-                        return new EditableSlider<>(0, 0, width, 20, title, font, allowAlternativeInput, initialValue) {
+                        EditableSlider<?> editableSlider = new EditableSlider<>(0, 0, width, 20, title, font, allowAlternativeInput, initialValue) {
                             @Override
                             public double toSliderRange(BigDecimal value) {
                                 return value.subtract(min).divide(minMaxRange, MathContext.DECIMAL128).doubleValue();
@@ -454,6 +489,8 @@ public class ElementReflection {
                                 }
                             }
                         };
+                        editableSlider.setFormattingString(formatting);
+                        return editableSlider;
                     } catch (IllegalAccessException e) {
                         throw new RuntimeException(e);
                     }
@@ -469,7 +506,7 @@ public class ElementReflection {
                 return new LatticeElement((font, title, description, width) -> {
                     try {
                         Object initialValue = field.get(config);
-                        return new DiscreteSlider<>(0, 0, width, 20, title, initialValue, values) {
+                        DiscreteSlider<?> discreteSlider = new DiscreteSlider<>(0, 0, width, 20, title, initialValue, values) {
                             @Override
                             public void setValue(Object value) {
                                 try {
@@ -479,6 +516,8 @@ public class ElementReflection {
                                 }
                             }
                         };
+                        discreteSlider.setFormattingString(formatting);
+                        return discreteSlider;
                     } catch (IllegalAccessException e) {
                         throw new RuntimeException(e);
                     }

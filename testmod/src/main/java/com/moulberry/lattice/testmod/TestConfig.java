@@ -2,6 +2,7 @@ package com.moulberry.lattice.testmod;
 
 import com.moulberry.lattice.LatticeDynamicFrequency;
 import com.moulberry.lattice.annotation.LatticeCategory;
+import com.moulberry.lattice.annotation.LatticeFormatValues;
 import com.moulberry.lattice.annotation.constraint.LatticeDisableIf;
 import com.moulberry.lattice.annotation.constraint.LatticeFloatRange;
 import com.moulberry.lattice.annotation.constraint.LatticeHideIf;
@@ -21,6 +22,12 @@ public class TestConfig {
     @LatticeOption(title = "Root", description = "This is an option present at the root level. It should use the default category name 'General'", translate = false)
     @LatticeWidgetButton
     public boolean rootButton = false;
+
+    @LatticeOption(title = "Formatting", description = "This has custom value formatting `-> 0x%X <-`", translate = false)
+    @LatticeIntRange(min = 0, max = 0xFFFF)
+    @LatticeFormatValues(formattingString = "-> 0x%X <-")
+    @LatticeWidgetSlider
+    public int withFormatting = 0xBEEF;
 
     @LatticeCategory(name = "Booleans", translate = false)
     public Booleans booleans = new Booleans();
