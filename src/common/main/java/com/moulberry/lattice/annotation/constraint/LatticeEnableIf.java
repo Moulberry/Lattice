@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface LatticeEnableIf {
 
-    String function();
+    String function(); // Function must take no arguments and return a boolean
     LatticeDynamicFrequency frequency() default LatticeDynamicFrequency.ONCE;
 
 }

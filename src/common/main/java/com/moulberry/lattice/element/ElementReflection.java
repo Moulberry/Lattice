@@ -1,5 +1,6 @@
 package com.moulberry.lattice.element;
 
+import com.google.gson.reflect.TypeToken;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.moulberry.lattice.annotation.LatticeFormatValues;
 import com.moulberry.lattice.annotation.constraint.LatticeEnableIf;
@@ -21,15 +22,17 @@ import com.moulberry.lattice.widget.DropdownWidget;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
-import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
+import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
@@ -41,12 +44,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+import java.util.function.DoubleConsumer;
+import java.util.function.DoubleSupplier;
+import java.util.function.IntConsumer;
+import java.util.function.IntSupplier;
+import java.util.function.LongConsumer;
+import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 
 @ApiStatus.Internal
 public class ElementReflection {
 
     private static final Set<Class<? extends Annotation>> widgetAnnotations = Set.of(
         LatticeWidgetButton.class,
+        LatticeWidgetCustom.class,
         LatticeWidgetDropdown.class,
         LatticeWidgetKeybind.class,
         LatticeWidgetMessage.class,
@@ -225,7 +237,210 @@ public class ElementReflection {
         elements.options.add(latticeElement);
     }
 
+    private static final Map<Class<?>, Class<?>> WRAPPER_TYPES = Map.of(
+        int.class, Integer.class,
+        long.class, Long.class,
+        boolean.class, Boolean.class,
+        short.class, Short.class,
+        byte.class, Byte.class,
+        char.class, Character.class,
+        float.class, Float.class,
+        double.class, Double.class
+    );
+
+    private <T> WidgetFunction createWidgetFunction(Object config, Annotation annotation, String functionName, Field field) {
+        Method methodWithInvalidArguments = null;
+
+        // todo: take Field instead of supplier
+
+        Class<?> type = field.getType();
+        Class<?> wrapperType = WRAPPER_TYPES.getOrDefault(type, type);
+
+        Type supplierType = TypeToken.getParameterized(Supplier.class, wrapperType).getType();
+        Type consumerType = TypeToken.getParameterized(Consumer.class, wrapperType).getType();
+        Type primitiveSupplierType = null;
+        Type primitiveConsumerType = null;
+
+        if (field.getType() == int.class) {
+            primitiveSupplierType = IntSupplier.class;
+            primitiveConsumerType = IntConsumer.class;
+        } else if (field.getType() == long.class) {
+            primitiveSupplierType = LongSupplier.class;
+            primitiveConsumerType = LongConsumer.class;
+        } else if (field.getType() == boolean.class) {
+            primitiveSupplierType = BooleanSupplier.class;
+        } else if (field.getType() == double.class) {
+            primitiveSupplierType = DoubleSupplier.class;
+            primitiveConsumerType = DoubleConsumer.class;
+        }
+
+        Class<?> clazz = config.getClass();
+        while (clazz != null) {
+            Method method = null;
+
+            for (Method declaredMethod : clazz.getDeclaredMethods()) {
+                if (declaredMethod.getName().equals(functionName)) {
+                    if (isMethodValidForWidgetFunction(declaredMethod, consumerType, primitiveConsumerType, supplierType, primitiveSupplierType)) {
+                        method = declaredMethod;
+                        break;
+                    } else if (methodWithInvalidArguments == null) {
+                        methodWithInvalidArguments = declaredMethod;
+                    }
+                }
+            }
+
+            if (method != null) {
+                method.trySetAccessible();
+
+                Parameter[] parameters = method.getParameters();
+
+                Object firstArgument = createArgumentForWidgetFunction(config, field, parameters[0], supplierType, primitiveSupplierType, consumerType, primitiveConsumerType);
+                Object secondArgument = createArgumentForWidgetFunction(config, field, parameters[1], supplierType, primitiveSupplierType, consumerType, primitiveConsumerType);
+
+                try {
+                    return (WidgetFunction) method.invoke(config, firstArgument, secondArgument);
+                } catch (InvocationTargetException | IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            clazz = config.getClass().getEnclosingClass();
+        }
+
+        if (methodWithInvalidArguments != null) {
+            String suppliers;
+            String consumers;
+            if (primitiveSupplierType != null) {
+                suppliers = primitiveSupplierType.getTypeName() + "/" + supplierType.getTypeName();
+            } else {
+                suppliers = supplierType.toString();
+            }
+            if (primitiveConsumerType != null) {
+                consumers = primitiveConsumerType.getTypeName() + "/" + consumerType.getTypeName();
+            } else {
+                consumers = consumerType.toString();
+            }
+            throw new RuntimeException("Error trying to check " + annotation + ": " + methodWithInvalidArguments.getName() + " must return WidgetFunction and take parameters " + suppliers + " and " + consumers);
+        }
+
+        throw new RuntimeException("Can't find function for " + annotation);
+    }
+
+    private static Object createArgumentForWidgetFunction(Object config, Field field, Parameter parameter, Type supplier, @Nullable Type primitiveSupplier, Type consumer, @Nullable Type primitiveConsumer) {
+        var parameterized = parameter.getParameterizedType();
+        if (parameterized.equals(supplier)) {
+            return (Supplier<Object>) () -> {
+                try {
+                    return field.get(config);
+                } catch (IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                }
+            };
+        } else if (parameterized.equals(consumer)) {
+            return (Consumer<Object>) value -> {
+                try {
+                    field.set(config, value);
+                } catch (IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                }
+            };
+        } else if (parameterized.equals(primitiveSupplier)) {
+            if (primitiveSupplier == IntSupplier.class) {
+                return (IntSupplier) () -> {
+                    try {
+                        return field.getInt(config);
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
+                };
+            } else if (primitiveSupplier == LongSupplier.class) {
+                return (LongSupplier) () -> {
+                    try {
+                        return field.getLong(config);
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
+                };
+            } else if (primitiveSupplier == BooleanSupplier.class) {
+                return (BooleanSupplier) () -> {
+                    try {
+                        return field.getBoolean(config);
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
+                };
+            } else if (primitiveSupplier == DoubleSupplier.class) {
+                return (DoubleSupplier) () -> {
+                    try {
+                        return field.getDouble(config);
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
+                };
+            } else {
+                throw new RuntimeException("Unknown primitive supplier type: " + primitiveSupplier);
+            }
+        } else if (parameterized.equals(primitiveConsumer)) {
+            if (primitiveConsumer == IntConsumer.class) {
+                return (IntConsumer) value -> {
+                    try {
+                        field.setInt(config, value);
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
+                };
+            } else if (primitiveConsumer == LongConsumer.class) {
+                return (LongConsumer) value -> {
+                    try {
+                        field.setLong(config, value);
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
+                };
+            } else if (primitiveConsumer == DoubleConsumer.class) {
+                return (DoubleConsumer) value -> {
+                    try {
+                        field.setDouble(config, value);
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
+                };
+            } else {
+                throw new RuntimeException("Unknown primitive consumer type: " + primitiveConsumer);
+            }
+        } else {
+            throw new RuntimeException("Unknown supplier/consumer type: " + parameterized);
+        }
+    }
+
+    private static boolean isMethodValidForWidgetFunction(Method method, Type supplier, @Nullable Type primitiveSupplier, Type consumer, @Nullable Type primitiveConsumer) {
+        if (method.getReturnType() != WidgetFunction.class) {
+            return false;
+        }
+        if (method.getParameterCount() != 2) {
+            return false;
+        }
+        Parameter[] parameters = method.getParameters();
+        if (parameters.length != 2) {
+            return false;
+        }
+        if (checkWidgetFunctionParameterType(parameters[0], supplier, primitiveSupplier)) {
+            return checkWidgetFunctionParameterType(parameters[1], consumer, primitiveConsumer);
+        } else if (checkWidgetFunctionParameterType(parameters[0], consumer, primitiveConsumer)) {
+            return checkWidgetFunctionParameterType(parameters[1], supplier, primitiveSupplier);
+        } else {
+            return false;
+        }
+    }
+
+    private static boolean checkWidgetFunctionParameterType(Parameter parameter, Type main, @Nullable Type primitive) {
+        var parameterized = parameter.getParameterizedType();
+        return parameterized.equals(main) || parameterized.equals(primitive);
+    }
+
     private BooleanSupplier getOrCreateCondition(Object config, Annotation annotation, String functionName) {
+        Method methodWithInvalidArguments = null;
+
         Class<?> clazz = config.getClass();
         while (clazz != null) {
             CachedConditionKey key = new CachedConditionKey(clazz, functionName);
@@ -235,18 +450,26 @@ public class ElementReflection {
                 return cached;
             }
 
-            try {
-                Method method = config.getClass().getDeclaredMethod(functionName);
+            Method method = null;
 
-                if (method.getReturnType() != boolean.class && method.getReturnType() != Boolean.class) {
-                    throw new RuntimeException("Error trying to check " + annotation + ": " + method + " does not return boolean");
+            for (Method declaredMethod : clazz.getDeclaredMethods()) {
+                if (declaredMethod.getName().equals(functionName)) {
+                    if (isMethodValidForCondition(declaredMethod)) {
+                        method = declaredMethod;
+                        break;
+                    } else if (methodWithInvalidArguments == null) {
+                        methodWithInvalidArguments = declaredMethod;
+                    }
                 }
+            }
 
+            if (method != null) {
                 method.trySetAccessible();
 
+                Method methodF = method;
                 BooleanSupplier supplier = () -> {
                     try {
-                        return (Boolean) method.invoke(config);
+                        return (Boolean) methodF.invoke(config);
                     } catch (InvocationTargetException | IllegalAccessException e) {
                         throw new RuntimeException(e);
                     }
@@ -254,11 +477,26 @@ public class ElementReflection {
 
                 this.conditions.put(key, supplier);
                 return supplier;
-            } catch (NoSuchMethodException ignored) {}
-            clazz = config.getClass().getEnclosingClass();
+            }
+
+            clazz = clazz.getEnclosingClass();
+        }
+
+        if (methodWithInvalidArguments != null) {
+            throw new RuntimeException("Error trying to check " + annotation + ": " + methodWithInvalidArguments + " must return boolean and take zero arguments");
         }
 
         throw new RuntimeException("Can't find function for " + annotation);
+    }
+
+    private static boolean isMethodValidForCondition(Method method) {
+        if (method.getReturnType() != boolean.class && method.getReturnType() != Boolean.class) {
+            return false;
+        }
+        if (method.getParameterCount() > 0) {
+            return false;
+        }
+        return true;
     }
 
     private LatticeElement createLatticeElement(Object config, Field field, Annotation widgetAnnotation, Component titleComponent, Component descriptionComponent) throws IllegalAccessException {
@@ -276,7 +514,10 @@ public class ElementReflection {
             translateFormatting = false;
         }
 
-        if (widgetAnnotation instanceof LatticeWidgetButton) {
+        if (widgetAnnotation instanceof LatticeWidgetCustom custom) {
+            WidgetFunction widgetFunction = createWidgetFunction(config, custom, custom.function(), field);
+            return new LatticeElement(widgetFunction, titleComponent, descriptionComponent);
+        } else if (widgetAnnotation instanceof LatticeWidgetButton) {
             checkForUnexpectedAnnotations(field, LatticeWidgetButton.class);
 
             if (Runnable.class.isAssignableFrom(fieldType)) {

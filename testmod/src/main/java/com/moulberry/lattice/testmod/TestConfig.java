@@ -1,6 +1,7 @@
 package com.moulberry.lattice.testmod;
 
 import com.moulberry.lattice.LatticeDynamicFrequency;
+import com.moulberry.lattice.WidgetFunction;
 import com.moulberry.lattice.annotation.LatticeCategory;
 import com.moulberry.lattice.annotation.LatticeFormatValues;
 import com.moulberry.lattice.annotation.constraint.LatticeDisableIf;
@@ -13,6 +14,9 @@ import com.moulberry.lattice.keybind.LatticeInputType;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
+
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public class TestConfig {
 
@@ -28,6 +32,14 @@ public class TestConfig {
     @LatticeFormatValues(formattingString = "-> 0x%X <-")
     @LatticeWidgetSlider
     public int withFormatting = 0xBEEF;
+
+    @LatticeOption(title = "Custom", description = "This is custom widget", translate = false)
+    @LatticeWidgetCustom(function = "customWidgetFunction")
+    public int customValue = 2;
+
+    private WidgetFunction customWidgetFunction(Supplier<Integer> supplier, Consumer<Integer> consumer) {
+        return WidgetFunction.cycleButton(supplier, consumer, 1, 2, 3);
+    }
 
     @LatticeCategory(name = "Booleans", translate = false)
     public Booleans booleans = new Booleans();

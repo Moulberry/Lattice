@@ -29,8 +29,8 @@ public interface WidgetFunction {
     @SafeVarargs
     static <T> WidgetFunction cycleButton(Supplier<T> initial, Consumer<T> setter, T... values) {
         return (font, title, description, width) -> CycleButton.<T>builder(v -> Component.literal(v.toString()))
-            .withInitialValue(initial.get())
             .withValues(values)
+            .withInitialValue(initial.get())
             .create(0, 0, width, 20, title, (btn, object) -> {
                 setter.accept(object);
             });
