@@ -229,13 +229,27 @@ public class LatticeConfigScreen extends Screen {
     public @NotNull List<? extends GuiEventListener> children() {
         List<GuiEventListener> children = new ArrayList<>(super.children());
         if (this.searching) {
+            if (this.tickWidgetsOnPosition) {
+                this.positionSearchWidgets();
+            }
             var widgets = this.elementSearcher.getSearchedWidgets(this.font, this.buttonWidth);
             if (widgets != null) {
-                children.addAll(widgets);
+                if (this.widgetsThatWereHiddenOnLastTick.isEmpty()) {
+                    children.addAll(widgets);
+                } else {
+                    for (AbstractWidget widget : widgets) {
+                        if (!this.widgetsThatWereHiddenOnLastTick.contains(widget)) {
+                            children.add(widget);
+                        }
+                    }
+                }
             }
         } else {
+            if (this.tickWidgetsOnPosition) {
+                this.positionOptionWidgets();
+            }
             children.addAll(this.categoryButtons);
-            addRecursive(children, this.optionEntries);
+            addVisibleWidgetsRecursive(children, this.optionEntries);
         }
 
         GuiEventListener popupWidget = this.getPopup();
@@ -246,14 +260,17 @@ public class LatticeConfigScreen extends Screen {
         return children;
     }
 
-    private static void addRecursive(List<GuiEventListener> list, List<AbstractWidget> widgets) {
+    private void addVisibleWidgetsRecursive(List<GuiEventListener> list, List<AbstractWidget> widgets) {
         if (widgets == null) {
             return;
         }
         for (AbstractWidget widget : widgets) {
+            if (this.widgetsThatWereHiddenOnLastTick.contains(widget)) {
+                continue;
+            }
             list.add(widget);
             if (widget instanceof WidgetExtraFunctionality extraFunctionality) {
-                addRecursive(list, extraFunctionality.extraWidgets());
+                addVisibleWidgetsRecursive(list, extraFunctionality.extraWidgets());
             }
         }
     }
@@ -275,9 +292,15 @@ public class LatticeConfigScreen extends Screen {
 
         if (mouseY >= TOP_PADDING && mouseY <= this.height-BOTTOM_PADDING) {
             if (this.searching) {
+                if (this.tickWidgetsOnPosition) {
+                    this.positionSearchWidgets();
+                }
                 var widgets = this.elementSearcher.getSearchedWidgets(this.font, this.buttonWidth);
                 if (widgets != null) {
                     for (AbstractWidget widget : widgets) {
+                        if (this.widgetsThatWereHiddenOnLastTick.contains(widget)) {
+                            continue;
+                        }
                         if (widget.isMouseOver(mouseX, mouseY)) {
                             return Optional.of(widget);
                         }
@@ -292,6 +315,9 @@ public class LatticeConfigScreen extends Screen {
                 }
                 return Optional.empty();
             } else {
+                if (this.tickWidgetsOnPosition) {
+                    this.positionOptionWidgets();
+                }
                 return checkMouseOverRecursive(this.optionEntries, mouseX, mouseY);
             }
         }
@@ -299,11 +325,14 @@ public class LatticeConfigScreen extends Screen {
         return Optional.empty();
     }
 
-    private static Optional<GuiEventListener> checkMouseOverRecursive(List<AbstractWidget> widgets, double mouseX, double mouseY) {
+    private Optional<GuiEventListener> checkMouseOverRecursive(List<AbstractWidget> widgets, double mouseX, double mouseY) {
         if (widgets == null) {
             return Optional.empty();
         }
         for (AbstractWidget abstractWidget : widgets) {
+            if (this.widgetsThatWereHiddenOnLastTick.contains(abstractWidget)) {
+                continue;
+            }
             if (abstractWidget.isMouseOver(mouseX, mouseY)) {
                 return Optional.of(abstractWidget);
             }
@@ -327,6 +356,7 @@ public class LatticeConfigScreen extends Screen {
         if (path != null) {
             path.applyFocus(false);
         }
+        this.currentExtraFunctionalityWidget = null;
     }
 
     @Override
@@ -385,7 +415,6 @@ public class LatticeConfigScreen extends Screen {
         }
 
         this.clearFocusInternal();
-        this.currentExtraFunctionalityWidget = null;
         return false;
     }
 
@@ -400,7 +429,6 @@ public class LatticeConfigScreen extends Screen {
 
         if (!this.currentExtraFunctionalityWidget.listeningForRawKeyInput()) {
             this.clearFocusInternal();
-            this.currentExtraFunctionalityWidget = null;
         }
         this.suppressInputThisTick = true;
     }
@@ -551,7 +579,6 @@ public class LatticeConfigScreen extends Screen {
         if (popupWidget != null) {
             if (keysym == GLFW.GLFW_KEY_ESCAPE) {
                 this.clearFocusInternal();
-                this.currentExtraFunctionalityWidget = null;
                 return true;
             }
             if (popupWidget.keyPressed(keysym, scancode, mods)) {
@@ -798,10 +825,14 @@ public class LatticeConfigScreen extends Screen {
 
         int currentY = TOP_PADDING + ITEM_PADDING;
 
+        var focused = this.getFocused();
         for (AbstractWidget widget : widgets) {
             if (this.tickWidgetsOnPosition) {
                 if (this.widgetContext.tickAndGetIsHidden(widget)) {
                     this.widgetsThatWereHiddenOnLastTick.add(widget);
+                    if (focused == widget) {
+                        this.clearFocusInternal();
+                    }
                     continue;
                 }
             } else if (this.widgetsThatWereHiddenOnLastTick.contains(widget)) {
@@ -885,10 +916,14 @@ public class LatticeConfigScreen extends Screen {
         if (widgets == null) {
             return currentY;
         }
+        var focused = this.getFocused();
         for (AbstractWidget widget : widgets) {
             if (this.tickWidgetsOnPosition) {
                 if (this.widgetContext.tickAndGetIsHidden(widget)) {
                     this.widgetsThatWereHiddenOnLastTick.add(widget);
+                    if (focused == widget) {
+                        this.clearFocusInternal();
+                    }
                     continue;
                 }
             } else if (this.widgetsThatWereHiddenOnLastTick.contains(widget)) {
