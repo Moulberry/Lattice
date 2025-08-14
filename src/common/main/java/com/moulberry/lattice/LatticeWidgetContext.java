@@ -2,6 +2,8 @@ package com.moulberry.lattice;
 
 import com.moulberry.lattice.element.LatticeDynamicCondition;
 import com.moulberry.lattice.element.LatticeElement;
+import com.moulberry.lattice.element.LatticeElements;
+import com.moulberry.lattice.widget.SubcategoryButton;
 import com.moulberry.lattice.widget.WidgetWithText;
 import it.unimi.dsi.fastutil.objects.Object2BooleanOpenHashMap;
 import net.minecraft.ChatFormatting;
@@ -14,6 +16,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.function.BooleanSupplier;
 
 @ApiStatus.Internal
@@ -27,16 +31,20 @@ public class LatticeWidgetContext {
 
     private Font font;
     private int width;
+    private final Set<LatticeElements> openedSubcategories;
 
-    private final Map<LatticeElement, WidgetDisableOrHide> disableOrHideMap = new HashMap<>();
+    private final Map<LatticeElement, WidgetDisableOrHide> elementOnceConditionMap = new HashMap<>();
+    private final Map<LatticeElements, WidgetDisableOrHide> subcategoryOnceConditionMap = new HashMap<>();
+
+    private final Map<AbstractWidget, BooleanSupplier> hideOnTick = new WeakHashMap<>();
+    private final Map<AbstractWidget, BooleanSupplier> disableOnTick = new WeakHashMap<>();
+
     private final Object2BooleanOpenHashMap<BooleanSupplier> memorizedConditions = new Object2BooleanOpenHashMap<>();
-    private final Map<LatticeElement, AbstractWidget> widgetsWithConditions = new HashMap<>();
-    private final Map<AbstractWidget, BooleanSupplier> hideOnTick = new HashMap<>();
-    private final Map<AbstractWidget, BooleanSupplier> disableOnTick = new HashMap<>();
 
-    public LatticeWidgetContext(Font font, int width) {
+    public LatticeWidgetContext(Font font, int width, Set<LatticeElements> openedSubcategories) {
         this.font = font;
         this.width = width;
+        this.openedSubcategories = openedSubcategories;
     }
 
     public void setFont(Font font) {
@@ -55,10 +63,19 @@ public class LatticeWidgetContext {
         return this.memorizedConditions.computeIfAbsent(booleanSupplier, supplier -> ((BooleanSupplier) supplier).getAsBoolean());
     }
 
-    public boolean tickAndGetIsHidden(AbstractWidget widget) {
+    public void tick(AbstractWidget widget) {
         BooleanSupplier hideCondition = this.hideOnTick.get(widget);
-        if (hideCondition != null && checkMemorizedCondition(hideCondition)) {
-            return true;
+        if (hideCondition != null) {
+            widget.visible = !checkMemorizedCondition(hideCondition);
+            if (widget instanceof WidgetWithText widgetWithText) {
+                widgetWithText.widget.visible = widget.visible;
+            } else if (!widget.visible && widget instanceof SubcategoryButton subcategoryButton) {
+                subcategoryButton.setOpen(false);
+            }
+        }
+
+        if (!widget.visible) {
+            return;
         }
 
         BooleanSupplier disableCondition = this.disableOnTick.get(widget);
@@ -66,14 +83,51 @@ public class LatticeWidgetContext {
             widget.active = !checkMemorizedCondition(disableCondition);
             if (widget instanceof WidgetWithText widgetWithText) {
                 widgetWithText.widget.active = widget.active;
+            } else if (!widget.active && widget instanceof SubcategoryButton subcategoryButton) {
+                subcategoryButton.setOpen(false);
             }
         }
-
-        return false;
     }
 
     public void finishTick() {
         this.memorizedConditions.clear();
+    }
+
+    public @Nullable AbstractWidget createSubcategory(LatticeElements subcategory, int depth) {
+        WidgetDisableOrHide disableOrHide = this.subcategoryOnceConditionMap.computeIfAbsent(subcategory, LatticeWidgetContext::checkCategoryDisabledOrHidden);
+        if (disableOrHide == WidgetDisableOrHide.HIDDEN) {
+            return null;
+        }
+
+        // Check if hidden, and return null if so
+        var hiddenDynamic = subcategory.hiddenDynamic();
+        if (hiddenDynamic != null && hiddenDynamic.frequency() == LatticeDynamicFrequency.WHEN_CATEGORY_OPENED && hiddenDynamic.condition().getAsBoolean()) {
+            return null;
+        }
+
+        Component title = subcategory.getTitleOrDefault();
+        Component titleWithRightArrow = Component.empty().append(title).append(" \u25B6");
+        Component titleWithDownArrow = Component.empty().append(title).append(" \u25BC");
+
+        SubcategoryButton widget = new SubcategoryButton(this.font, this.width, depth, subcategory, this.openedSubcategories,
+            this, titleWithRightArrow, titleWithDownArrow);
+
+        var disabledDynamic = subcategory.disabledDynamic();
+
+        if (disableOrHide == WidgetDisableOrHide.DISABLED) {
+            widget.active = false;
+        } else if (disabledDynamic != null && disabledDynamic.condition().getAsBoolean()) {
+            widget.active = false;
+        }
+
+        if (hiddenDynamic != null && hiddenDynamic.frequency() == LatticeDynamicFrequency.EVERY_TICK) {
+            this.hideOnTick.put(widget, hiddenDynamic.condition());
+        }
+        if (disabledDynamic != null && disabledDynamic.frequency() == LatticeDynamicFrequency.EVERY_TICK) {
+            this.disableOnTick.put(widget, disabledDynamic.condition());
+        }
+
+        return widget;
     }
 
     public @Nullable AbstractWidget create(LatticeElement element) {
@@ -81,15 +135,9 @@ public class LatticeWidgetContext {
     }
 
     public @Nullable AbstractWidget create(LatticeElement element, @Nullable Component overrideTitle, @Nullable Component overrideDescription, int overrideWidth) {
-        WidgetDisableOrHide disableOrHide = this.disableOrHideMap.computeIfAbsent(element, LatticeWidgetContext::checkElementDisabledOrHidden);
+        WidgetDisableOrHide disableOrHide = this.elementOnceConditionMap.computeIfAbsent(element, LatticeWidgetContext::checkElementDisabledOrHidden);
         if (disableOrHide == WidgetDisableOrHide.HIDDEN) {
             return null;
-        }
-
-        AbstractWidget oldWidget = this.widgetsWithConditions.remove(element);
-        if (oldWidget != null) {
-            this.hideOnTick.remove(oldWidget);
-            this.disableOnTick.remove(oldWidget);
         }
 
         Component title = overrideTitle == null ? element.title() : overrideTitle;
@@ -131,32 +179,37 @@ public class LatticeWidgetContext {
             widget = new WidgetWithText(widget, showTitleSeparately ? title : null, description, font);
         }
 
-        boolean checkHiddenEveryTick = hiddenDynamic != null && hiddenDynamic.frequency() == LatticeDynamicFrequency.EVERY_TICK;
-        boolean checkDisabledEveryTick = disabledDynamic != null && disabledDynamic.frequency() == LatticeDynamicFrequency.EVERY_TICK;
-        if (checkHiddenEveryTick || checkDisabledEveryTick) {
-            this.widgetsWithConditions.put(element, widget);
-            if (checkHiddenEveryTick) {
-                this.hideOnTick.put(widget, hiddenDynamic.condition());
-            }
-            if (checkDisabledEveryTick) {
-                this.disableOnTick.put(widget, disabledDynamic.condition());
-            }
+        if (hiddenDynamic != null && hiddenDynamic.frequency() == LatticeDynamicFrequency.EVERY_TICK) {
+            this.hideOnTick.put(widget, hiddenDynamic.condition());
+        }
+        if (disabledDynamic != null && disabledDynamic.frequency() == LatticeDynamicFrequency.EVERY_TICK) {
+            this.disableOnTick.put(widget, disabledDynamic.condition());
         }
 
         return widget;
     }
 
     private static WidgetDisableOrHide checkElementDisabledOrHidden(LatticeElement element) {
-       if (checkDynamicCondition(element.hiddenDynamic())) {
+       if (checkOnceCondition(element.hiddenDynamic())) {
            return WidgetDisableOrHide.HIDDEN;
-       } else if (checkDynamicCondition(element.disabledDynamic())) {
+       } else if (checkOnceCondition(element.disabledDynamic())) {
            return WidgetDisableOrHide.DISABLED;
        } else {
            return WidgetDisableOrHide.NONE;
        }
     }
 
-    private static boolean checkDynamicCondition(LatticeDynamicCondition condition) {
+    private static WidgetDisableOrHide checkCategoryDisabledOrHidden(LatticeElements category) {
+        if (checkOnceCondition(category.hiddenDynamic())) {
+            return WidgetDisableOrHide.HIDDEN;
+        } else if (checkOnceCondition(category.disabledDynamic())) {
+            return WidgetDisableOrHide.DISABLED;
+        } else {
+            return WidgetDisableOrHide.NONE;
+        }
+    }
+
+    private static boolean checkOnceCondition(LatticeDynamicCondition condition) {
         if (condition != null && condition.frequency() == LatticeDynamicFrequency.ONCE) {
             return condition.condition().getAsBoolean();
         } else {

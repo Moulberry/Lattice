@@ -18,8 +18,23 @@ public class LatticeElements {
     public List<LatticeElements> subcategories = new ArrayList<>();
     public @Nullable Component title;
 
+    private LatticeDynamicCondition disabledDynamic = null;
+    private LatticeDynamicCondition hiddenDynamic = null;
+
     LatticeElements(@Nullable Component title) {
         this.title = title;
+    }
+
+    public static LatticeElements empty(Component title) {
+        return new LatticeElements(title);
+    }
+
+    public static LatticeElements fromAnnotations(Component title, Object config) throws LatticeFieldToOptionException {
+        ElementReflection elementReflection = new ElementReflection();
+
+        LatticeElements elements = new LatticeElements(title);
+        elementReflection.addElementsFromClass(config, elements);
+        return elements;
     }
 
     public @NotNull Component getTitleOrDefault() {
@@ -40,16 +55,20 @@ public class LatticeElements {
         return true;
     }
 
-    public static LatticeElements empty(Component title) {
-        return new LatticeElements(title);
+    public void disabledDynamic(LatticeDynamicCondition disabledDynamic) {
+        this.disabledDynamic = disabledDynamic;
     }
 
-    public static LatticeElements fromAnnotations(Component title, Object config) throws LatticeFieldToOptionException {
-        ElementReflection elementReflection = new ElementReflection();
+    public void hiddenDynamic(LatticeDynamicCondition hiddenDynamic) {
+        this.hiddenDynamic = hiddenDynamic;
+    }
 
-        LatticeElements elements = new LatticeElements(title);
-        elementReflection.addElementsFromClass(config, elements);
-        return elements;
+    public LatticeDynamicCondition disabledDynamic() {
+        return this.disabledDynamic;
+    }
+
+    public LatticeDynamicCondition hiddenDynamic() {
+        return this.hiddenDynamic;
     }
 
 }

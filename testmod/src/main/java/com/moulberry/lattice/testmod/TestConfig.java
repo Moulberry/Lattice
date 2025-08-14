@@ -8,6 +8,7 @@ import com.moulberry.lattice.annotation.constraint.LatticeDisableIf;
 import com.moulberry.lattice.annotation.constraint.LatticeFloatRange;
 import com.moulberry.lattice.annotation.constraint.LatticeHideIf;
 import com.moulberry.lattice.annotation.constraint.LatticeIntRange;
+import com.moulberry.lattice.annotation.constraint.LatticeShowIf;
 import com.moulberry.lattice.annotation.widget.*;
 import com.moulberry.lattice.annotation.LatticeOption;
 import com.moulberry.lattice.keybind.LatticeInputType;
@@ -130,30 +131,31 @@ public class TestConfig {
     public Dynamic dynamic = new Dynamic();
 
     public static class Dynamic {
-        @LatticeOption(title = "Disable following option", description = "If this is set to on, the following option will become disabled", translate = false)
+        @LatticeOption(title = "Disable following options", description = "If this is set to on, the following options will become disabled", translate = false)
         @LatticeWidgetButton
         public boolean disableNext = false;
 
-        @LatticeOption(title = "You can't do this to me!", translate = false)
-        @LatticeWidgetButton
-        @LatticeDisableIf(function = "checkDisableNext", frequency = LatticeDynamicFrequency.EVERY_TICK)
-        public boolean test2 = false;
-
-        private boolean checkDisableNext() {
-            return this.disableNext;
-        }
-
-        @LatticeOption(title = "Show following option", description = "If this is set to off, the following option will disappear", translate = false)
+        @LatticeOption(title = "Show following options", description = "If this is set to off, the following options will disappear", translate = false)
         @LatticeWidgetButton
         public boolean showNext = true;
 
         @LatticeOption(title = "I don't feel so good...", translate = false)
         @LatticeWidgetButton
-        @LatticeHideIf(function = "checkShowNext", frequency = LatticeDynamicFrequency.EVERY_TICK)
+        @LatticeShowIf(function = "checkShowNext", frequency = LatticeDynamicFrequency.EVERY_TICK)
+        @LatticeDisableIf(function = "checkDisableNext", frequency = LatticeDynamicFrequency.EVERY_TICK)
         public boolean test1 = false;
 
+        @LatticeCategory(name = "Subcategory", translate = false)
+        @LatticeShowIf(function = "checkShowNext", frequency = LatticeDynamicFrequency.EVERY_TICK)
+        @LatticeDisableIf(function = "checkDisableNext", frequency = LatticeDynamicFrequency.EVERY_TICK)
+        public Subcategories subcategories = new Subcategories();
+
+        private boolean checkDisableNext() {
+            return this.disableNext;
+        }
+
         private boolean checkShowNext() {
-            return !this.showNext;
+            return this.showNext;
         }
     }
 

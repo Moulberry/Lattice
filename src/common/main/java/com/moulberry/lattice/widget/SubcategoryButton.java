@@ -82,13 +82,10 @@ public class SubcategoryButton extends AbstractButton implements WidgetExtraFunc
                 continue;
             }
 
-            Component title = subcategory.getTitleOrDefault();
-            Component titleWithRightArrow = Component.empty().append(title).append(" \u25B6");
-            Component titleWithDownArrow = Component.empty().append(title).append(" \u25BC");
-
-            var widget = new SubcategoryButton(this.font, this.baseWidth, this.index+1, subcategory,
-                this.openedSubcategories, this.widgetContext, titleWithRightArrow, titleWithDownArrow);
-            this.childWidgets.add(widget);
+            var subcategoryButton = this.widgetContext.createSubcategory(subcategory, this.index+1);
+            if (subcategoryButton != null) {
+                this.childWidgets.add(subcategoryButton);
+            }
         }
     }
 
@@ -101,6 +98,20 @@ public class SubcategoryButton extends AbstractButton implements WidgetExtraFunc
             this.openedSubcategories.remove(subcategory);
             this.setMessage(this.closedTitle);
             this.childWidgets.clear();
+        }
+    }
+
+    public void setOpen(boolean open) {
+        if (open) {
+            if (this.openedSubcategories.add(subcategory)) {
+                this.setMessage(this.openedTitle);
+                this.createWidgets();
+            }
+        } else {
+            if (this.openedSubcategories.remove(subcategory)) {
+                this.setMessage(this.closedTitle);
+                this.childWidgets.clear();
+            }
         }
     }
 

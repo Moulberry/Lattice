@@ -76,7 +76,6 @@ public class LatticeConfigScreen extends Screen {
     private final LatticeWidgetContext widgetContext;
 
     private boolean tickWidgetsOnPosition = false;
-    private Set<AbstractWidget> widgetsThatWereHiddenOnLastTick = new HashSet<>();
 
     public LatticeConfigScreen(LatticeElements options, @Nullable Runnable onClosed, @Nullable Screen closeTo) {
         super(options.title == null ? LatticeTextComponents.DEFAULT_CONFIG_NAME : options.title);
@@ -88,7 +87,7 @@ public class LatticeConfigScreen extends Screen {
             this.activeCategory = options.subcategories.get(0);
         }
 
-        this.widgetContext = new LatticeWidgetContext(this.font, this.buttonWidth);
+        this.widgetContext = new LatticeWidgetContext(this.font, this.buttonWidth, this.openedSubcategories);
         this.elementSearcher = new LatticeElementSearcher(options, this.widgetContext);
         this.onClosed = onClosed;
         this.closeTo = closeTo;
@@ -213,11 +212,10 @@ public class LatticeConfigScreen extends Screen {
                     continue;
                 }
 
-                Component title = subcategory.getTitleOrDefault();
-                Component titleWithRightArrow = Component.empty().append(title).append(" \u25B6");
-                Component titleWithDownArrow = Component.empty().append(title).append(" \u25BC");
-                this.optionEntries.add(new SubcategoryButton(this.font, this.buttonWidth, 0, subcategory, this.openedSubcategories,
-                    this.widgetContext, titleWithRightArrow, titleWithDownArrow));
+                var subcategoryButton = this.widgetContext.createSubcategory(subcategory, 0);
+                if (subcategoryButton != null) {
+                    this.optionEntries.add(subcategoryButton);
+                }
             }
         }
 
@@ -234,13 +232,9 @@ public class LatticeConfigScreen extends Screen {
             }
             var widgets = this.elementSearcher.getSearchedWidgets(this.font, this.buttonWidth);
             if (widgets != null) {
-                if (this.widgetsThatWereHiddenOnLastTick.isEmpty()) {
-                    children.addAll(widgets);
-                } else {
-                    for (AbstractWidget widget : widgets) {
-                        if (!this.widgetsThatWereHiddenOnLastTick.contains(widget)) {
-                            children.add(widget);
-                        }
+                for (AbstractWidget widget : widgets) {
+                    if (widget.visible) {
+                        children.add(widget);
                     }
                 }
             }
@@ -265,7 +259,7 @@ public class LatticeConfigScreen extends Screen {
             return;
         }
         for (AbstractWidget widget : widgets) {
-            if (this.widgetsThatWereHiddenOnLastTick.contains(widget)) {
+            if (!widget.visible) {
                 continue;
             }
             list.add(widget);
@@ -298,7 +292,7 @@ public class LatticeConfigScreen extends Screen {
                 var widgets = this.elementSearcher.getSearchedWidgets(this.font, this.buttonWidth);
                 if (widgets != null) {
                     for (AbstractWidget widget : widgets) {
-                        if (this.widgetsThatWereHiddenOnLastTick.contains(widget)) {
+                        if (!widget.visible) {
                             continue;
                         }
                         if (widget.isMouseOver(mouseX, mouseY)) {
@@ -330,7 +324,7 @@ public class LatticeConfigScreen extends Screen {
             return Optional.empty();
         }
         for (AbstractWidget abstractWidget : widgets) {
-            if (this.widgetsThatWereHiddenOnLastTick.contains(abstractWidget)) {
+            if (!abstractWidget.visible) {
                 continue;
             }
             if (abstractWidget.isMouseOver(mouseX, mouseY)) {
@@ -556,7 +550,6 @@ public class LatticeConfigScreen extends Screen {
     private void resetTickWidgetsOnPosition() {
         if (!this.tickWidgetsOnPosition && this.widgetContext.hasAnyOnTickConditions()) {
             this.tickWidgetsOnPosition = true;
-            this.widgetsThatWereHiddenOnLastTick.clear();
         }
     }
 
@@ -828,14 +821,13 @@ public class LatticeConfigScreen extends Screen {
         var focused = this.getFocused();
         for (AbstractWidget widget : widgets) {
             if (this.tickWidgetsOnPosition) {
-                if (this.widgetContext.tickAndGetIsHidden(widget)) {
-                    this.widgetsThatWereHiddenOnLastTick.add(widget);
-                    if (focused == widget) {
-                        this.clearFocusInternal();
-                    }
-                    continue;
+                this.widgetContext.tick(widget);
+            }
+
+            if (!widget.visible) {
+                if (focused == widget) {
+                    this.clearFocusInternal();
                 }
-            } else if (this.widgetsThatWereHiddenOnLastTick.contains(widget)) {
                 continue;
             }
 
@@ -919,14 +911,13 @@ public class LatticeConfigScreen extends Screen {
         var focused = this.getFocused();
         for (AbstractWidget widget : widgets) {
             if (this.tickWidgetsOnPosition) {
-                if (this.widgetContext.tickAndGetIsHidden(widget)) {
-                    this.widgetsThatWereHiddenOnLastTick.add(widget);
-                    if (focused == widget) {
-                        this.clearFocusInternal();
-                    }
-                    continue;
+                this.widgetContext.tick(widget);
+            }
+
+            if (!widget.visible) {
+                if (focused == widget) {
+                    this.clearFocusInternal();
                 }
-            } else if (this.widgetsThatWereHiddenOnLastTick.contains(widget)) {
                 continue;
             }
 

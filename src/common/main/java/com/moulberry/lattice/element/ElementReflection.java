@@ -176,6 +176,8 @@ public class ElementReflection {
             LatticeElements childElements = new LatticeElements(nameComponent);
             this.addElementsFromClass(childConfig, childElements);
             elements.subcategories.add(childElements);
+            childElements.hiddenDynamic(hideDynamic);
+            childElements.disabledDynamic(disableDynamic);
             return;
         }
 
