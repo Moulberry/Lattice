@@ -2,7 +2,7 @@
   "required": true,
   "minVersion": "0.8",
   "package": "com.moulberry.lattice.mixin.v1204",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_17",
   "plugin": "com.moulberry.lattice.LatticeMixinConfigPlugin",
   "client": [
     "MixinDropdownWidget"
