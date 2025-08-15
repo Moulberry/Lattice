@@ -72,7 +72,7 @@ public class ElementReflection {
         LatticeFloatRange.class
     );
 
-    private record CachedConditionKey(Class<?> clazz, String method) {}
+    private record CachedConditionKey(Class<?> clazz, @Nullable Object object, String method) {}
 
     private final Map<CachedConditionKey, BooleanSupplier> conditions = new HashMap<>();
     private final KeyMappingListSupplier keyMappingListSupplier = new KeyMappingListSupplier();
@@ -291,7 +291,7 @@ public class ElementReflection {
                 }
             }
 
-            if (method != null) {
+            if (method != null && (Modifier.isStatic(method.getModifiers()) || clazz.isAssignableFrom(config.getClass()))) {
                 method.trySetAccessible();
 
                 Parameter[] parameters = method.getParameters();
@@ -445,11 +445,20 @@ public class ElementReflection {
 
         Class<?> clazz = config.getClass();
         while (clazz != null) {
-            CachedConditionKey key = new CachedConditionKey(clazz, functionName);
-            BooleanSupplier cached = this.conditions.get(key);
+            CachedConditionKey nonStaticKey = null;
+            if (clazz.isAssignableFrom(config.getClass())) {
+                nonStaticKey = new CachedConditionKey(clazz, config, functionName);
 
-            if (cached != null) {
-                return cached;
+                BooleanSupplier cached = this.conditions.get(nonStaticKey);
+                if (cached != null) {
+                    return cached;
+                }
+            }
+
+            CachedConditionKey staticKey = new CachedConditionKey(clazz, null, functionName);
+            BooleanSupplier cachedStatic = this.conditions.get(staticKey);
+            if (cachedStatic != null) {
+                return cachedStatic;
             }
 
             Method method = null;
@@ -469,16 +478,29 @@ public class ElementReflection {
                 method.trySetAccessible();
 
                 Method methodF = method;
-                BooleanSupplier supplier = () -> {
-                    try {
-                        return (Boolean) methodF.invoke(config);
-                    } catch (InvocationTargetException | IllegalAccessException e) {
-                        throw new RuntimeException(e);
-                    }
-                };
+                if (Modifier.isStatic(methodF.getModifiers())) {
+                    BooleanSupplier supplier = () -> {
+                        try {
+                            return (Boolean) methodF.invoke(null);
+                        } catch (InvocationTargetException | IllegalAccessException e) {
+                            throw new RuntimeException(e);
+                        }
+                    };
 
-                this.conditions.put(key, supplier);
-                return supplier;
+                    this.conditions.put(staticKey, supplier);
+                    return supplier;
+                } else if (nonStaticKey != null) {
+                    BooleanSupplier supplier = () -> {
+                        try {
+                            return (Boolean) methodF.invoke(config);
+                        } catch (InvocationTargetException | IllegalAccessException e) {
+                            throw new RuntimeException(e);
+                        }
+                    };
+
+                    this.conditions.put(nonStaticKey, supplier);
+                    return supplier;
+                }
             }
 
             clazz = clazz.getEnclosingClass();
