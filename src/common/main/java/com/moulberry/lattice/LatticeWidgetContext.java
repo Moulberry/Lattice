@@ -121,6 +121,7 @@ public class LatticeWidgetContext {
         }
 
         if (hiddenDynamic != null && hiddenDynamic.frequency() == LatticeDynamicFrequency.EVERY_TICK) {
+            widget.visible = !hiddenDynamic.condition().getAsBoolean();
             this.hideOnTick.put(widget, hiddenDynamic.condition());
         }
         if (disabledDynamic != null && disabledDynamic.frequency() == LatticeDynamicFrequency.EVERY_TICK) {
@@ -169,17 +170,25 @@ public class LatticeWidgetContext {
 
         var disabledDynamic = element.disabledDynamic();
 
+        boolean active = true;
         if (disableOrHide == WidgetDisableOrHide.DISABLED) {
-            widget.active = false;
+            active = false;
         } else if (disabledDynamic != null && disabledDynamic.condition().getAsBoolean()) {
-            widget.active = false;
+            active = false;
         }
 
+        widget.active = active;
         if (description != null || showTitleSeparately) {
             widget = new WidgetWithText(widget, showTitleSeparately ? title : null, description, font);
+            widget.active = active;
         }
 
         if (hiddenDynamic != null && hiddenDynamic.frequency() == LatticeDynamicFrequency.EVERY_TICK) {
+            widget.visible = !hiddenDynamic.condition().getAsBoolean();
+            if (widget instanceof WidgetWithText widgetWithText) {
+                widgetWithText.widget.visible = widget.visible;
+            }
+
             this.hideOnTick.put(widget, hiddenDynamic.condition());
         }
         if (disabledDynamic != null && disabledDynamic.frequency() == LatticeDynamicFrequency.EVERY_TICK) {
