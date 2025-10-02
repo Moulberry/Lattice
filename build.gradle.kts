@@ -1,13 +1,11 @@
 import earth.terrarium.cloche.api.target.CommonTarget
 import com.vanniktech.maven.publish.JavaLibrary
 import com.vanniktech.maven.publish.JavadocJar
-import com.vanniktech.maven.publish.Platform
 import com.vanniktech.maven.publish.SonatypeHost
-import earth.terrarium.cloche.TargetAttributes
-import org.gradle.nativeplatform.toolchain.internal.gcc.TargetPlatformConfiguration
+import earth.terrarium.cloche.api.attributes.TargetAttributes
 
 plugins {
-    id("earth.terrarium.cloche") version "0.11.6"
+    id("earth.terrarium.cloche") version "0.13.6"
     id("com.vanniktech.maven.publish") version("0.28.0") // `maven-publish` doesn't support new maven central
 }
 
@@ -36,8 +34,8 @@ dependencies {
     compileOnly("org.jetbrains:annotations:23.0.0")
 }
 
-var fabricJarOutputs = mutableListOf<Provider<RegularFile>>()
-var forgeLikeJarOutputs = mutableListOf<Provider<RegularFile>>()
+var fabricJarOutputs = mutableListOf<Provider<out Jar>>()
+var forgeLikeJarOutputs = mutableListOf<Provider<out Jar>>()
 
 cloche {
     metadata {
@@ -66,6 +64,7 @@ cloche {
         mixins.from("src/1.20.4/main/mixins/lattice1204.mixins.json")
         mixins.from("src/1.20.6/main/mixins/lattice1206.mixins.json")
         mixins.from("src/1.21.6/main/mixins/lattice1216.mixins.json")
+        mixins.from("src/1.21.9/main/mixins/lattice1219.mixins.json")
     }
 
     val commonMinecraftVersion: Attribute<String> = Attribute.of("com.moulberry.commonMinecraftVersion", String::class.java)
@@ -81,7 +80,7 @@ cloche {
     fun createFabric(commonTarget: CommonTarget, version: String) {
         fabric("fabric:${version}") {
             minecraftVersion = version
-            loaderVersion = "0.16.14"
+            loaderVersion = "0.17.2"
 
             dependsOn(commonTarget)
 
@@ -136,6 +135,7 @@ cloche {
     createAll("1.21.4", null, null)//"21.4.147")
     createAll("1.21.5", null, null)//"21.5.87")
     createAll("1.21.6", null, null)//"21.6.20-beta")
+    createAll("1.21.9", null, null)
 }
 
 tasks.register<Jar>("buildMergedFabric") {
@@ -143,7 +143,7 @@ tasks.register<Jar>("buildMergedFabric") {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
     fabricJarOutputs.forEach { jarProvider ->
-        from(project.zipTree(jarProvider))
+        from(project.zipTree(jarProvider.get().archiveFile))
     }
 
     manifest {
@@ -158,7 +158,7 @@ tasks.register<Jar>("buildMergedForgelike") {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
     forgeLikeJarOutputs.forEach { jarProvider ->
-        from(project.zipTree(jarProvider))
+        from(project.zipTree(jarProvider.get().archiveFile))
     }
 }
 

@@ -2,6 +2,7 @@ package com.moulberry.lattice;
 
 import com.moulberry.lattice.annotation.widget.LatticeWidgetMessage;
 import com.moulberry.lattice.multiversion.LatticeMultiversion;
+import com.moulberry.lattice.widget.CenteredStringWidget;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.*;
 import net.minecraft.network.chat.CommonComponents;
@@ -67,13 +68,11 @@ public interface WidgetFunction {
     static @NotNull WidgetFunction string(int maxRows, boolean centered) {
         return (font, title, description, width) -> {
             if (maxRows <= 1) {
-                StringWidget stringWidget = new StringWidget(0, 0, width, font.lineHeight, title, font);
                 if (centered) {
-                    stringWidget.alignCenter();
+                    return new CenteredStringWidget(0, 0, width, font.lineHeight, title, font);
                 } else {
-                    stringWidget.alignLeft();
+                    return new StringWidget(0, 0, width, font.lineHeight, title, font);
                 }
-                return stringWidget;
             } else {
                 MultiLineTextWidget textWidget = new MultiLineTextWidget(title, font);
                 textWidget.setMaxWidth(width);

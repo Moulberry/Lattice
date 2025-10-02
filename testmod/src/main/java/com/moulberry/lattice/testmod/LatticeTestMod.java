@@ -2,6 +2,7 @@ package com.moulberry.lattice.testmod;
 
 import com.moulberry.lattice.Lattice;
 import com.moulberry.lattice.element.LatticeElements;
+import com.moulberry.lattice.multiversion.LatticeMultiversion;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
@@ -22,7 +23,7 @@ public class LatticeTestMod implements ModInitializer {
         });
 
         ClientTickEvents.START_CLIENT_TICK.register(minecraft -> {
-            long window = minecraft.getWindow().getWindow();
+            long window = LatticeMultiversion.getWindowHandle();
             Screen screen = minecraft.screen;
             if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_K) != 0 && (screen == null || screen instanceof TitleScreen)) {
                 LatticeElements elements = LatticeElements.fromAnnotations(Component.literal("Test Config"), testConfig);

@@ -23,7 +23,8 @@ public class LatticeMixinConfigPlugin implements IMixinConfigPlugin {
         Map.entry("v1202", 3572),
         Map.entry("v1204", 3693),
         Map.entry("v1206", 3829),
-        Map.entry("v1216", 4430)
+        Map.entry("v1216", 4430),
+        Map.entry("v1219", 4548)
     );
 
     private static final Map<String, List<String>> versionedMixinMap = Map.ofEntries(
@@ -31,9 +32,12 @@ public class LatticeMixinConfigPlugin implements IMixinConfigPlugin {
         Map.entry("multiversion.MixinMouseScrolled", List.of("v1201", "v1202")),
         Map.entry("multiversion.MixinNewMultiLineEditBox", List.of("v1201", "v1216")),
         Map.entry("multiversion.MixinOffsetZ", List.of("v1201", "v1216")),
+        Map.entry("multiversion.MixinGetWindowHandle", List.of("v1201", "v1219")),
         Map.entry("MixinDropdownWidget", List.of("v1201", "v1202", "v1204", "v1206")),
         Map.entry("MixinLatticeConfigScreen", List.of("v1201", "v1202", "v1216")),
-        Map.entry("MixinWidgetWithText", List.of("v1201", "v1202"))
+        Map.entry("MixinWidgetWithText", List.of("v1201", "v1202")),
+        Map.entry("GuiEventListenerMixins", List.of("v1201", "v1219")),
+        Map.entry("MixinDropdownWidgetEntry", List.of("v1219"))
     );
 
     @Override
@@ -58,6 +62,7 @@ public class LatticeMixinConfigPlugin implements IMixinConfigPlugin {
             }
 
             String mixinName = mixinClassName.substring(this.mixinPackage.length() + 1);
+            mixinName = mixinName.split("\\$")[0];
             List<String> versionsForMixin = versionedMixinMap.get(mixinName);
 
             if (versionsForMixin == null) {
@@ -85,7 +90,7 @@ public class LatticeMixinConfigPlugin implements IMixinConfigPlugin {
                 throw new RuntimeException("Mixin " + mixinClassName + " isn't included in versioned map");
             }
             if (applyVersionName == null) {
-                throw new RuntimeException("Unable to find applicable version for " + mixinClassName);
+                return false;
             }
 
             return this.mixinPackage.endsWith("." + applyVersionName);

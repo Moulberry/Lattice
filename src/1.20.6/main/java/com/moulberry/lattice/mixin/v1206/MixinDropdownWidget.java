@@ -5,9 +5,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.ObjectSelectionList;
+import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -26,6 +28,8 @@ public class MixinDropdownWidget {
                 super(minecraft, width, height, y, itemHeight);
             }
 
+            private boolean replaceEntries = false;
+
             protected void renderListBackground(GuiGraphics guiGraphics) {
                 guiGraphics.fill(
                         this.getX(),
@@ -35,13 +39,33 @@ public class MixinDropdownWidget {
                         0xF0101010
                 );
 
-                guiGraphics.renderOutline(
-                        this.getX(),
-                        this.getY()-1,
-                        this.getWidth(),
-                        this.getHeight()+2,
-                        isFocused.getAsBoolean() ? 0xFFFFFFFF : 0xFF000000
-                );
+                int minX = this.getX();
+                int minY = this.getY()-1;
+                int maxX = minX+this.getWidth();
+                int maxY = minY+this.getHeight()+2;
+                int colour = isFocused.getAsBoolean() ? 0xFFFFFFFF : 0xFF000000;
+                guiGraphics.fill(minX, minY, maxX, minY + 1, colour);
+                guiGraphics.fill(minX, maxY - 1, maxX, maxY, colour);
+                guiGraphics.fill(minX, minY + 1, minX + 1, maxY - 1, colour);
+                guiGraphics.fill(maxX - 1, minY + 1, maxX, maxY - 1, colour);
+
+                // Needed on 1.21.9+ to update position of widgets
+                if (this.replaceEntries) {
+                    this.replaceEntries = false;
+                    this.replaceEntries(new ArrayList<>(this.children()));
+                }
+            }
+
+            @Override
+            public void setX(int x) {
+                this.replaceEntries |= x != this.getX();
+                super.setX(x);
+            }
+
+            @Override
+            public void setY(int y) {
+                this.replaceEntries |= y != this.getY();
+                super.setY(y);
             }
 
             protected void renderListSeparators(GuiGraphics guiGraphics) {

@@ -3,6 +3,7 @@ package com.moulberry.lattice;
 import com.moulberry.lattice.element.LatticeElement;
 import com.moulberry.lattice.element.LatticeElements;
 import com.moulberry.lattice.widget.CategoryStringWidget;
+import com.moulberry.lattice.widget.CenteredStringWidget;
 import it.unimi.dsi.fastutil.objects.Object2BooleanOpenHashMap;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
@@ -236,7 +237,7 @@ public class LatticeElementSearcher {
 
         if (this.searchedWidgets.isEmpty()) {
             Component message = Component.translatable("lattice.no_results_found", Component.literal(this.lastSearch));
-            this.searchedWidgets.add(new StringWidget(width, font.lineHeight*3, message, font).alignCenter());
+            this.searchedWidgets.add(new CenteredStringWidget(width, font.lineHeight*3, message, font));
         }
 
         return this.searchedWidgets;

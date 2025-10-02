@@ -3,12 +3,11 @@ package com.moulberry.lattice;
 import com.moulberry.lattice.element.LatticeElement;
 import com.moulberry.lattice.element.LatticeElements;
 import com.moulberry.lattice.keybind.LatticeInputType;
-import com.moulberry.lattice.multiversion.LatticeMultiversion;
+import com.moulberry.lattice.multiversion.*;
 import com.moulberry.lattice.widget.SubcategoryButton;
 import com.moulberry.lattice.widget.WidgetWithText;
 import com.moulberry.lattice.widget.WidgetExtraFunctionality;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ComponentPath;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.*;
@@ -26,9 +25,10 @@ import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.*;
+import java.util.function.BooleanSupplier;
 
 @ApiStatus.Internal
-public class LatticeConfigScreen extends Screen {
+public class LatticeConfigScreen extends Screen implements IGuiEventListener {
 
     private static final int SCROLL_BAR_WIDTH = 6;
 
@@ -354,8 +354,12 @@ public class LatticeConfigScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int mouseButton) {
+    public boolean lattice$mouseClicked(IMouseButtonEvent event, BooleanSupplier callSuper) {
         this.setScrollToSubcategory(null);
+
+        int mouseButton = event.lattice$button();
+        double mouseX = event.lattice$x();
+        double mouseY = event.lattice$y();
 
         if (this.currentExtraFunctionalityWidget != null && this.currentExtraFunctionalityWidget.listeningForRawKeyInput()) {
             sendRawInputToWidget(LatticeInputType.MOUSE, mouseButton, false);
@@ -388,7 +392,7 @@ public class LatticeConfigScreen extends Screen {
             }
         }
 
-        if (super.mouseClicked(mouseX, mouseY, mouseButton)) {
+        if (callSuper.getAsBoolean()) {
             var newExtraFunctionalityWidget = this.getExtraFunctionalityWidget();
             if (newExtraFunctionalityWidget != null) {
                 List<LatticeElements> switchToCategoryPath = newExtraFunctionalityWidget.switchToCategoryAfterClick();
@@ -444,9 +448,9 @@ public class LatticeConfigScreen extends Screen {
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int mouseButton) {
+    public boolean lattice$mouseReleased(IMouseButtonEvent event, BooleanSupplier callSuper) {
         if (this.currentExtraFunctionalityWidget != null && this.currentExtraFunctionalityWidget.listeningForRawKeyInput()) {
-            sendRawInputToWidget(LatticeInputType.MOUSE, mouseButton, true);
+            sendRawInputToWidget(LatticeInputType.MOUSE, event.lattice$button(), true);
             return true;
         }
 
@@ -467,22 +471,22 @@ public class LatticeConfigScreen extends Screen {
             return false;
         }
 
-        return super.mouseReleased(mouseX, mouseY, mouseButton);
+        return callSuper.getAsBoolean();
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int mouseButton, double dragX, double dragY) {
+    public boolean lattice$mouseDragged(IMouseButtonEvent event, double dx, double dy, BooleanSupplier callSuper) {
         if (this.scrollingCategoryList) {
-            this.categoryScrollAmount = calculateScrollFromDrag(dragY, this.categoryContentHeight, this.categoryScrollAmount);
+            this.categoryScrollAmount = calculateScrollFromDrag(dy, this.categoryContentHeight, this.categoryScrollAmount);
         }
         if (this.scrollingOptionList) {
-            this.optionScrollAmount = calculateScrollFromDrag(dragY, this.optionContentHeight, this.optionScrollAmount);
+            this.optionScrollAmount = calculateScrollFromDrag(dy, this.optionContentHeight, this.optionScrollAmount);
         }
         if (this.scrollingSearchList) {
-            this.searchScrollAmount = calculateScrollFromDrag(dragY, this.searchContentHeight, this.searchScrollAmount);
+            this.searchScrollAmount = calculateScrollFromDrag(dy, this.searchContentHeight, this.searchScrollAmount);
         }
 
-        return super.mouseDragged(mouseX, mouseY, mouseButton, dragX, dragY);
+        return callSuper.getAsBoolean();
     }
 
     private double calculateScrollFromDrag(double dragY, int contentHeight, double scrollAmount) {
@@ -554,7 +558,10 @@ public class LatticeConfigScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keysym, int scancode, int mods) {
+    public boolean lattice$keyPressed(IKeyEvent event, BooleanSupplier callSuper) {
+        int keysym = event.lattice$keysym();
+        int scancode = event.lattice$scancode();
+
         if (this.currentExtraFunctionalityWidget != null && this.currentExtraFunctionalityWidget.listeningForRawKeyInput()) {
             if (keysym != GLFW.GLFW_KEY_UNKNOWN) {
                 sendRawInputToWidget(LatticeInputType.KEYSYM, keysym, false);
@@ -574,12 +581,12 @@ public class LatticeConfigScreen extends Screen {
                 this.clearFocusInternal();
                 return true;
             }
-            if (popupWidget.keyPressed(keysym, scancode, mods)) {
+            if (event.lattice$passPressedTo(popupWidget)) {
                 return true;
             }
             if (popupWidget instanceof ContainerEventHandler containerWidget) {
                 FocusNavigationEvent focusNavigationEvent = switch (keysym) {
-                    case GLFW.GLFW_KEY_TAB -> new FocusNavigationEvent.TabNavigation(!Screen.hasShiftDown());
+                    case GLFW.GLFW_KEY_TAB -> new FocusNavigationEvent.TabNavigation(!event.lattice$hasShiftDown());
                     case GLFW.GLFW_KEY_RIGHT -> new FocusNavigationEvent.ArrowNavigation(ScreenDirection.RIGHT);
                     case GLFW.GLFW_KEY_LEFT -> new FocusNavigationEvent.ArrowNavigation(ScreenDirection.LEFT);
                     case GLFW.GLFW_KEY_DOWN -> new FocusNavigationEvent.ArrowNavigation(ScreenDirection.DOWN);
@@ -613,12 +620,11 @@ public class LatticeConfigScreen extends Screen {
             return true;
         }
 
-        if (super.keyPressed(keysym, scancode, mods)) {
+        if (callSuper.getAsBoolean()) {
             return true;
         }
 
-        int modifier = Minecraft.ON_OSX ? GLFW.GLFW_MOD_SUPER : GLFW.GLFW_MOD_CONTROL;
-        if (keysym == GLFW.GLFW_KEY_F && (mods & modifier) != 0) {
+        if (keysym == GLFW.GLFW_KEY_F && event.lattice$hasCtrlOrCmdDown()) {
             this.setFocused(this.searchBox);
             return true;
         }
@@ -627,7 +633,10 @@ public class LatticeConfigScreen extends Screen {
     }
 
     @Override
-    public boolean keyReleased(int keysym, int scancode, int modifiers) {
+    public boolean lattice$keyReleased(IKeyEvent event, BooleanSupplier callSuper) {
+        int keysym = event.lattice$keysym();
+        int scancode = event.lattice$scancode();
+
         if (this.currentExtraFunctionalityWidget != null && this.currentExtraFunctionalityWidget.listeningForRawKeyInput()) {
             if (keysym != GLFW.GLFW_KEY_UNKNOWN) {
                 sendRawInputToWidget(LatticeInputType.KEYSYM, keysym, true);
@@ -643,24 +652,24 @@ public class LatticeConfigScreen extends Screen {
 
         GuiEventListener popupWidget = this.getPopup();
         if (popupWidget != null) {
-            return popupWidget.keyReleased(keysym, scancode, modifiers);
+            return event.lattice$passReleasedTo(popupWidget);
         }
 
-        return super.keyReleased(keysym, scancode, modifiers);
+        return callSuper.getAsBoolean();
     }
 
     @Override
-    public boolean charTyped(char c, int i) {
+    public boolean lattice$charTyped(ICharacterEvent event, BooleanSupplier callSuper) {
         if (this.shouldSuppressInput()) {
             return false;
         }
 
         GuiEventListener popupWidget = this.getPopup();
         if (popupWidget != null) {
-            return popupWidget.charTyped(c, i);
+            return event.lattice$passCharTypedTo(popupWidget);
         }
 
-        return super.charTyped(c, i);
+        return callSuper.getAsBoolean();
     }
 
     private void renderDividersAndBackground(GuiGraphics guiGraphics) {
@@ -835,7 +844,11 @@ public class LatticeConfigScreen extends Screen {
             if (widget instanceof StringWidget) {
                 extraOffset += 2;
             }
-            widget.setPosition(this.width/2-this.buttonWidth/2+extraOffset, currentY - (int) this.searchScrollAmount);
+            int newX = this.width/2-this.buttonWidth/2+extraOffset;
+            int newY = currentY - (int) this.searchScrollAmount;
+            if (widget.getX() != newX || widget.getY() != newY) {
+                widget.setPosition(newX, newY);
+            }
             if (guiGraphics != null) {
                 widget.render(guiGraphics, mouseX, mouseY, partialTick);
             }
@@ -859,7 +872,11 @@ public class LatticeConfigScreen extends Screen {
         int currentY = TOP_PADDING + ITEM_PADDING - 1;
 
         for (AbstractButton categoryButton : this.categoryButtons) {
-            categoryButton.setPosition(this.width/2-this.buttonWidth-ITEM_PADDING, currentY - (int) this.categoryScrollAmount);
+            int newX = this.width/2-this.buttonWidth-ITEM_PADDING;
+            int newY = currentY - (int) this.categoryScrollAmount;
+            if (categoryButton.getX() != newX || categoryButton.getY() != newY) {
+                categoryButton.setPosition(newX, newY);
+            }
             if (guiGraphics != null) {
                 categoryButton.render(guiGraphics, mouseX, mouseY, partialTick);
             }
@@ -921,7 +938,10 @@ public class LatticeConfigScreen extends Screen {
                 continue;
             }
 
-            widget.setPosition(x, currentY - (int) this.optionScrollAmount);
+            int newY = currentY - (int) this.optionScrollAmount;
+            if (widget.getX() != x || widget.getY() != newY) {
+                widget.setPosition(x, newY);
+            }
             if (guiGraphics != null) {
                 widget.render(guiGraphics, mouseX, mouseY, partialTick);
             }

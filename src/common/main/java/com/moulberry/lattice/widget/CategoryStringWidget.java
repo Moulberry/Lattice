@@ -1,6 +1,8 @@
 package com.moulberry.lattice.widget;
 
 import com.moulberry.lattice.element.LatticeElements;
+import com.moulberry.lattice.multiversion.IGuiEventListener;
+import com.moulberry.lattice.multiversion.IMouseButtonEvent;
 import com.moulberry.lattice.multiversion.LatticeMultiversion;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
@@ -15,8 +17,9 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
-public class CategoryStringWidget extends AbstractWidget implements WidgetExtraFunctionality {
+public class CategoryStringWidget extends AbstractWidget implements IGuiEventListener, WidgetExtraFunctionality {
 
     private static final FormattedCharSequence SLASH = FormattedCharSequence.forward("/", Style.EMPTY);
     private final List<LatticeElements> categories;
@@ -64,11 +67,15 @@ public class CategoryStringWidget extends AbstractWidget implements WidgetExtraF
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int mouseButton) {
+    public boolean lattice$mouseClicked(IMouseButtonEvent event, BooleanSupplier callSuper) {
         this.clickedCategoryPath = null;
 
         int x = this.getX();
         int y = this.getY() + (this.getHeight() - this.font.lineHeight) / 2;
+
+        int mouseButton = event.lattice$button();
+        double mouseX = event.lattice$x();
+        double mouseY = event.lattice$y();
 
         if (mouseButton == 0 && mouseY >= y && mouseY <= y + this.font.lineHeight) {
             int slashWidth = -1;
@@ -94,13 +101,13 @@ public class CategoryStringWidget extends AbstractWidget implements WidgetExtraF
             }
         }
 
-        return super.mouseClicked(mouseX, mouseY, mouseButton);
+        return callSuper.getAsBoolean();
     }
 
     @Override
-    public boolean mouseReleased(double v, double v1, int i) {
+    public boolean lattice$mouseReleased(IMouseButtonEvent event, BooleanSupplier callSuper) {
         this.clickedCategoryPath = null;
-        return super.mouseReleased(v, v1, i);
+        return callSuper.getAsBoolean();
     }
 
     @Override

@@ -114,13 +114,13 @@ public class TestConfig {
     public Keybinds keybinds = new Keybinds();
 
     public static class Keybinds {
-        @LatticeOption(title = "Vanilla", description = "This is a vanilla KeyMapping. It doesn't support modifiers like ctrl/alt/etc", translate = false)
-        @LatticeWidgetKeybind
-        public KeyMapping vanillaKeyMapping = new KeyMapping("Vanilla", GLFW.GLFW_KEY_H, "dummy");
-
-        @LatticeOption(title = "Vanilla 2", description = "This is also a vanilla KeyMapping. Use this to test conflicts", translate = false)
-        @LatticeWidgetKeybind
-        public KeyMapping vanillaKeyMapping2 = new KeyMapping("Vanilla 2", GLFW.GLFW_KEY_J, "dummy");
+//        @LatticeOption(title = "Vanilla", description = "This is a vanilla KeyMapping. It doesn't support modifiers like ctrl/alt/etc", translate = false)
+//        @LatticeWidgetKeybind
+//        public KeyMapping vanillaKeyMapping = new KeyMapping("Vanilla", GLFW.GLFW_KEY_H, "dummy");
+//
+//        @LatticeOption(title = "Vanilla 2", description = "This is also a vanilla KeyMapping. Use this to test conflicts", translate = false)
+//        @LatticeWidgetKeybind
+//        public KeyMapping vanillaKeyMapping2 = new KeyMapping("Vanilla 2", GLFW.GLFW_KEY_J, "dummy");
 
         @LatticeOption(title = "Custom", description = "This is a custom keybind type. It supports modifiers", translate = false)
         @LatticeWidgetKeybind(allowModifiers = true)

@@ -1,15 +1,15 @@
 package com.moulberry.lattice.widget;
 
+import com.moulberry.lattice.multiversion.IGuiEventListener;
+import com.moulberry.lattice.multiversion.IKeyEvent;
+import com.moulberry.lattice.multiversion.IMouseButtonEvent;
 import com.moulberry.lattice.multiversion.LatticeMultiversion;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.layouts.LayoutElement;
-import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.gui.navigation.CommonInputs;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
@@ -18,9 +18,10 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 @ApiStatus.Internal
-public abstract class DropdownWidget<T> extends AbstractButton implements WidgetExtraFunctionality {
+public abstract class DropdownWidget<T> extends Button implements WidgetExtraFunctionality {
 
     private final Component title;
     private final Font font;
@@ -32,7 +33,7 @@ public abstract class DropdownWidget<T> extends AbstractButton implements Widget
     private final Map<T, Entry> entryByValue = new HashMap<>();
 
     public DropdownWidget(int x, int y, int width, int height, Font font, Component title, T initialValue, T... values) {
-        super(x, y, width, height, CommonComponents.EMPTY);
+        super(x, y, width, height, CommonComponents.EMPTY, button -> ((DropdownWidget<T>)button).handlePress(), Supplier::get);
         this.font = font;
         this.title = title;
         this.currentValue = initialValue;
@@ -77,8 +78,7 @@ public abstract class DropdownWidget<T> extends AbstractButton implements Widget
         this.selection.setWidth(w);
     }
 
-    @Override
-    public void onPress() {
+    public void handlePress() {
         if (!this.showingSelectionDropdown) {
             this.showingSelectionDropdown = true;
 
@@ -87,11 +87,6 @@ public abstract class DropdownWidget<T> extends AbstractButton implements Widget
                 this.selection.setFocused(currentEntry);
             }
         }
-    }
-
-    @Override
-    protected void updateWidgetNarration(NarrationElementOutput narrationElementOutput) {
-
     }
 
     public interface DropdownSelectionInterface<T> extends GuiEventListener, LayoutElement {
@@ -110,7 +105,7 @@ public abstract class DropdownWidget<T> extends AbstractButton implements Widget
         throw new UnsupportedOperationException();
     }
 
-    public class Entry extends ObjectSelectionList.Entry<Entry> {
+    public class Entry extends ObjectSelectionList.Entry<Entry> implements IGuiEventListener {
         final T value;
         private long lastClickedMillis;
 
@@ -118,22 +113,32 @@ public abstract class DropdownWidget<T> extends AbstractButton implements Widget
             this.value = value;
         }
 
+        // For <1.21.9
         public void render(GuiGraphics guiGraphics, int index, int y, int x, int width, int height, int mouseX, int mouseY, boolean hovered, float partialTick) {
+            this.actuallyRender(guiGraphics, x, y);
+        }
+
+        // For >=1.21.9
+        public void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
+            throw new UnsupportedOperationException("Implemented by MixinDropdownWidgetEntry");
+        }
+
+        public void actuallyRender(GuiGraphics guiGraphics, int x, int y) {
             LatticeMultiversion.drawString(guiGraphics, DropdownWidget.this.font,
                     Component.literal(this.value.toString()), x, y, -1);
         }
 
-        public boolean keyPressed(int i, int j, int k) {
-            if (CommonInputs.selected(i)) {
+        @Override
+        public boolean lattice$keyPressed(IKeyEvent event, BooleanSupplier callSuper) {
+            if (event.lattice$isSelection()) {
                 DropdownWidget.this.updateValue(this.value);
                 DropdownWidget.this.showingSelectionDropdown = false;
-                return true;
-            } else {
-                return super.keyPressed(i, j, k);
             }
+            return true;
         }
 
-        public boolean mouseClicked(double d, double e, int i) {
+        @Override
+        public boolean lattice$mouseClicked(IMouseButtonEvent event, BooleanSupplier callSuper) {
             DropdownWidget.this.updateValue(this.value);
 
             long currentTime = System.currentTimeMillis();
@@ -142,10 +147,11 @@ public abstract class DropdownWidget<T> extends AbstractButton implements Widget
             }
             this.lastClickedMillis = currentTime;
 
-            super.mouseClicked(d, e, i);
+            callSuper.getAsBoolean();
             return true;
         }
 
+        @Override
         public Component getNarration() {
             return Component.translatable("narrator.select", this.value);
         }

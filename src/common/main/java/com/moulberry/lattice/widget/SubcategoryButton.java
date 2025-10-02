@@ -9,6 +9,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
@@ -16,8 +17,9 @@ import net.minecraft.network.chat.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
-public class SubcategoryButton extends AbstractButton implements WidgetExtraFunctionality {
+public class SubcategoryButton extends Button implements WidgetExtraFunctionality {
     private final Font font;
     private final int baseWidth;
     private final int index;
@@ -31,7 +33,7 @@ public class SubcategoryButton extends AbstractButton implements WidgetExtraFunc
 
     public SubcategoryButton(Font font, int baseWidth, int index, LatticeElements subcategory, Set<LatticeElements> openedSubcategories,
             LatticeWidgetContext widgetContext, Component closedTitle, Component openedTitle) {
-        super(0, 0, calculateWidth(baseWidth, index), 20, closedTitle);
+        super(0, 0, calculateWidth(baseWidth, index), 20, closedTitle, button -> ((SubcategoryButton)button).handlePress(), Supplier::get);
         this.font = font;
         this.baseWidth = baseWidth;
         this.index = index;
@@ -89,8 +91,7 @@ public class SubcategoryButton extends AbstractButton implements WidgetExtraFunc
         }
     }
 
-    @Override
-    public void onPress() {
+    public void handlePress() {
         if (this.openedSubcategories.add(subcategory)) {
             this.setMessage(this.openedTitle);
             this.createWidgets();
@@ -131,7 +132,7 @@ public class SubcategoryButton extends AbstractButton implements WidgetExtraFunc
     }
 
     @Override
-    protected void updateWidgetNarration(NarrationElementOutput narrationElementOutput) {
+    public void updateWidgetNarration(NarrationElementOutput narrationElementOutput) {
         narrationElementOutput.add(NarratedElementType.TITLE, this.getMessage());
     }
 }

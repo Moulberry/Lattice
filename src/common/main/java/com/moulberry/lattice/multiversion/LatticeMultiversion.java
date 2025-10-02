@@ -35,4 +35,9 @@ public class LatticeMultiversion {
         // Implemented by MixinOffsetZ on supported versions (<1.21.6)
     }
 
+    public static long getWindowHandle() {
+        // Implemented by MixinGetWindowHandle
+        throw new UnsupportedOperationException();
+    }
+
 }

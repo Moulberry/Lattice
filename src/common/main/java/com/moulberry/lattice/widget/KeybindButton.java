@@ -2,9 +2,11 @@ package com.moulberry.lattice.widget;
 
 import com.moulberry.lattice.keybind.KeybindInterface;
 import com.moulberry.lattice.keybind.LatticeInputType;
+import com.moulberry.lattice.multiversion.LatticeMultiversion;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
@@ -13,9 +15,10 @@ import org.jetbrains.annotations.ApiStatus;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.Collection;
+import java.util.function.Supplier;
 
 @ApiStatus.Internal
-public class KeybindButton extends AbstractButton implements WidgetExtraFunctionality {
+public class KeybindButton extends Button implements WidgetExtraFunctionality {
 
     private final Component title;
     private final KeybindInterface keybindInterface;
@@ -26,7 +29,7 @@ public class KeybindButton extends AbstractButton implements WidgetExtraFunction
     private Collection<Component> lastConflicts = null;
 
     public KeybindButton(int x, int y, int width, int height, Component title, boolean allowModifiers, KeybindInterface keybindInterface) {
-        super(x, y, width, height, title);
+        super(x, y, width, height, title, button -> ((KeybindButton)button).handlePress(), Supplier::get);
         this.allowModifiers = allowModifiers;
         this.title = title;
         this.keybindInterface = keybindInterface;
@@ -54,7 +57,7 @@ public class KeybindButton extends AbstractButton implements WidgetExtraFunction
             return true;
         }
 
-        long window = Minecraft.getInstance().getWindow().getWindow();
+        long window = LatticeMultiversion.getWindowHandle();
         boolean shiftMod = false;
         boolean ctrlMod = false;
         boolean altMod = false;
@@ -152,8 +155,7 @@ public class KeybindButton extends AbstractButton implements WidgetExtraFunction
         this.setMessage(Component.translatable("options.generic_value", this.title, message));
     }
 
-    @Override
-    public void onPress() {
+    public void handlePress() {
         this.editing = true;
         this.updateMessage();
     }
@@ -165,11 +167,6 @@ public class KeybindButton extends AbstractButton implements WidgetExtraFunction
             this.editing = false;
             this.updateMessage();
         }
-    }
-
-    @Override
-    protected void updateWidgetNarration(NarrationElementOutput narrationElementOutput) {
-
     }
 
 }

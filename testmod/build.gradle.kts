@@ -1,5 +1,5 @@
 plugins {
-    id("earth.terrarium.cloche") version "0.11.6"
+    id("earth.terrarium.cloche") version "0.13.6"
 }
 
 version = "1.0.0"
@@ -34,7 +34,7 @@ cloche {
     fun createFabric(version: String, apiVersion: String) {
         fabric("fabric:${version}") {
             minecraftVersion = version
-            loaderVersion = "0.16.14"
+            loaderVersion = "0.17.2"
 
             includedClient()
 
@@ -65,4 +65,5 @@ cloche {
     createFabric("1.21.4", "0.119.3")
     createFabric("1.21.5", "0.119.3")
     createFabric("1.21.6", "0.128.1")
+    createFabric("1.21.9", "0.133.14")
 }

@@ -1,6 +1,6 @@
 package com.moulberry.lattice.widget;
 
-import com.moulberry.lattice.multiversion.LatticeMultiversion;
+import com.moulberry.lattice.multiversion.*;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -13,9 +13,10 @@ import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 @ApiStatus.Internal
-public class WidgetWithText extends AbstractWidget {
+public class WidgetWithText extends AbstractWidget implements IGuiEventListener {
 
     public final AbstractWidget widget;
     private final @Nullable Component title;
@@ -104,29 +105,33 @@ public class WidgetWithText extends AbstractWidget {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean lattice$mouseClicked(IMouseButtonEvent event, BooleanSupplier callSuper) {
         int right = this.widget.getX() + this.widget.getWidth();
         int bottom = this.widget.getY() + this.widget.getHeight();
+        double mouseX = event.lattice$x();
+        double mouseY = event.lattice$y();
         if (mouseX >= this.widget.getX() && mouseY >= this.widget.getY() && mouseX <= right && mouseY <= bottom) {
-            return this.widget.mouseClicked(mouseX, mouseY, button);
+            return event.lattice$passClickedTo(this.widget);
         }
         return false;
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean lattice$mouseReleased(IMouseButtonEvent event, BooleanSupplier callSuper) {
         int right = this.widget.getX() + this.widget.getWidth();
         int bottom = this.widget.getY() + this.widget.getHeight();
+        double mouseX = event.lattice$x();
+        double mouseY = event.lattice$y();
         if (mouseX >= this.widget.getX() && mouseY >= this.widget.getY() && mouseX <= right && mouseY <= bottom) {
-            return this.widget.mouseReleased(mouseX, mouseY, button);
+            return event.lattice$passReleasedTo(this.widget);
         }
         return false;
     }
 
     @Override
-    public boolean mouseDragged(double d, double e, int i, double f, double g) {
+    public boolean lattice$mouseDragged(IMouseButtonEvent event, double dx, double dy, BooleanSupplier callSuper) {
         if (this.widget.isFocused()) {
-            return this.widget.mouseDragged(d, e, i, f, g);
+            return event.lattice$passDraggedTo(this.widget, dx, dy);
         }
         return false;
     }
@@ -134,25 +139,25 @@ public class WidgetWithText extends AbstractWidget {
     // mouseScrolled implemented by MixinWidgetWithText
 
     @Override
-    public boolean keyPressed(int i, int j, int k) {
+    public boolean lattice$keyPressed(IKeyEvent event, BooleanSupplier callSuper) {
         if (this.widget.isFocused()) {
-            return this.widget.keyPressed(i, j, k);
+            return event.lattice$passPressedTo(this.widget);
         }
         return false;
     }
 
     @Override
-    public boolean keyReleased(int i, int j, int k) {
+    public boolean lattice$keyReleased(IKeyEvent event, BooleanSupplier callSuper) {
         if (this.widget.isFocused()) {
-            return this.widget.keyReleased(i, j, k);
+            return event.lattice$passReleasedTo(this.widget);
         }
         return false;
     }
 
     @Override
-    public boolean charTyped(char c, int i) {
+    public boolean lattice$charTyped(ICharacterEvent event, BooleanSupplier callSuper) {
         if (this.widget.isFocused()) {
-            return this.widget.charTyped(c, i);
+            return event.lattice$passCharTypedTo(this.widget);
         }
         return false;
     }

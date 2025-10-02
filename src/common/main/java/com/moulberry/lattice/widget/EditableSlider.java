@@ -1,5 +1,9 @@
 package com.moulberry.lattice.widget;
 
+import com.moulberry.lattice.multiversion.ICharacterEvent;
+import com.moulberry.lattice.multiversion.IGuiEventListener;
+import com.moulberry.lattice.multiversion.IKeyEvent;
+import com.moulberry.lattice.multiversion.IMouseButtonEvent;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSliderButton;
@@ -13,9 +17,10 @@ import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.Objects;
+import java.util.function.BooleanSupplier;
 
 @ApiStatus.Internal
-public abstract class EditableSlider<T> extends AbstractSliderButton {
+public abstract class EditableSlider<T> extends AbstractSliderButton implements IGuiEventListener {
 
     private final EditBox editBox;
     private final Component title;
@@ -82,27 +87,29 @@ public abstract class EditableSlider<T> extends AbstractSliderButton {
     }
 
     @Override
-    public boolean mouseClicked(double d, double e, int button) {
-        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT || (Screen.hasControlDown() && button == GLFW.GLFW_MOUSE_BUTTON_LEFT)) {
+    public boolean lattice$mouseClicked(IMouseButtonEvent event, BooleanSupplier callSuper) {
+        int button = event.lattice$button();
+        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT || (event.lattice$hasCtrlOrCmdDown() && button == GLFW.GLFW_MOUSE_BUTTON_LEFT)) {
             if (this.allowManualInput && !this.editBox.isFocused()) {
                 setEditBoxFocus(true);
                 return true;
             }
         }
         if (this.editBox.isFocused()) {
-            return this.editBox.mouseClicked(d, e, button);
+            return event.lattice$passClickedTo(this.editBox);
         }
-        return super.mouseClicked(d, e, button);
+        return callSuper.getAsBoolean();
     }
 
     @Override
-    public boolean keyPressed(int i, int j, int k) {
+    public boolean lattice$keyPressed(IKeyEvent event, BooleanSupplier callSuper) {
         if (this.editBox.isFocused()) {
-            if (i == GLFW.GLFW_KEY_ESCAPE || i == GLFW.GLFW_KEY_ENTER || i == GLFW.GLFW_KEY_KP_ENTER) {
+            int key = event.lattice$keysym();
+            if (key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) {
                 setEditBoxFocus(false);
                 return true;
             }
-            boolean handled = this.editBox.keyPressed(i, j, k);
+            boolean handled = event.lattice$passPressedTo(this.editBox);
 
             T value;
             try {
@@ -121,13 +128,13 @@ public abstract class EditableSlider<T> extends AbstractSliderButton {
             this.editBox.setTextColor(0xFFFFFFFF);
             return handled;
         }
-        return super.keyPressed(i, j, k);
+        return callSuper.getAsBoolean();
     }
 
     @Override
-    public boolean charTyped(char c, int i) {
+    public boolean lattice$charTyped(ICharacterEvent event, BooleanSupplier callSuper) {
         if (this.editBox.isFocused()) {
-            boolean handled = this.editBox.charTyped(c, i);
+            boolean handled = event.lattice$passCharTypedTo(this.editBox);
 
             T value;
             try {
@@ -146,7 +153,7 @@ public abstract class EditableSlider<T> extends AbstractSliderButton {
             this.editBox.setTextColor(0xFFFFFFFF);
             return handled;
         }
-        return super.charTyped(c, i);
+        return callSuper.getAsBoolean();
     }
 
     @Override
