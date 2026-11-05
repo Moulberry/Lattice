@@ -184,7 +184,7 @@ mavenPublishing {
 
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
 
-    //signAllPublications()
+    signAllPublications()
 
     coordinates("com.moulberry", "lattice", version.toString())
 
