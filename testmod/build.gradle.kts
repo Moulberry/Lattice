@@ -58,7 +58,7 @@ cloche {
 
             metadata {
                 entrypoint("main") {
-                    value = "com.moulberry.lattice.testmod.LatticeTestMod"
+                    value = "com.moulberry.lattice.testmod.FabricLatticeTestMod"
                 }
             }
         }
@@ -89,6 +89,6 @@ cloche {
     }
 
 //    createFabric("26.1", "0.144.0")
-    createNeoforge("26.2", "26.2.0.93")
-    //createFabric("26.2", "0.153.0")
+    //createNeoforge("26.2", "26.2.0.93")
+    createFabric("26.2", "0.153.0")
 }
