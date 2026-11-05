@@ -56,7 +56,7 @@ public abstract class DiscreteSlider<T> extends AbstractSliderButton {
                 formatted = String.format(this.formattingString, this.currentValue);
             }
         }
-        this.setMessage(Component.translatable("options.generic_value", this.title, formatted));
+        this.setMessage(Component.translatable("options.generic_value", this.title, formatted.toString()));
     }
 
     @Override

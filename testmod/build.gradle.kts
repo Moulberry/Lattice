@@ -13,6 +13,8 @@ repositories {
     cloche {
         main()
         mavenFabric()
+        mavenNeoforged()
+        mavenNeoforgedMeta()
     }
 }
 
@@ -50,18 +52,43 @@ cloche {
 
             dependencies {
                 fabricApi(apiVersion, version.split("-")[0])
-                implementation(rootProject.tasks.named<Jar>("buildMergedFabric").get().outputs.files)
-                include(rootProject.tasks.named<Jar>("buildMergedFabric").get().outputs.files)
+                implementation(rootProject.tasks.named<Jar>("buildMerged").get().outputs.files)
+                include(rootProject.tasks.named<Jar>("buildMerged").get().outputs.files)
             }
 
             metadata {
                 entrypoint("main") {
-                    value = "com.moulberry.lattice.testmod.LatticeTestMod"
+                    value = "com.moulberry.lattice.testmod.FabricLatticeTestMod"
+                }
+            }
+        }
+    }
+
+    fun createNeoforge(version: String, neoforgeVersion: String) {
+        neoforge("neoforge:${version}") {
+            minecraftVersion = version
+            loaderVersion = neoforgeVersion
+
+            runs {
+                client()
+            }
+
+            dependencies {
+                implementation(rootProject.tasks.named<Jar>("buildMerged").get().outputs.files)
+                include(rootProject.tasks.named<Jar>("buildMerged").get().outputs.files)
+            }
+
+            metadata {
+                modLoader = "javafml"
+                loaderVersion {
+                    start = "1"
+                    startInclusive = true
                 }
             }
         }
     }
 
 //    createFabric("26.1", "0.144.0")
+    //createNeoforge("26.2", "26.2.0.93")
     createFabric("26.2", "0.153.0")
 }
