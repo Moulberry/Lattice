@@ -3,6 +3,10 @@ import com.vanniktech.maven.publish.JavaLibrary
 import com.vanniktech.maven.publish.JavadocJar
 import com.vanniktech.maven.publish.SonatypeHost
 import earth.terrarium.cloche.api.attributes.CommonTargetAttributes
+import earth.terrarium.cloche.api.attributes.CompilationAttributes
+import earth.terrarium.cloche.api.attributes.MinecraftModLoader
+import earth.terrarium.cloche.api.attributes.ModDistribution
+import earth.terrarium.cloche.api.attributes.TargetAttributes
 
 plugins {
     id("earth.terrarium.cloche") version "0.18.8+beta-2"
@@ -140,34 +144,19 @@ fun baseConfiguration(configuration: Configuration) {
     configuration.attributes.attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.EXTERNAL))
     configuration.attributes.attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
     configuration.attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.JAR))
+    configuration.attributes.attribute(CompilationAttributes.DISTRIBUTION, ModDistribution.client)
 }
 
-var fabricConfigurationApi = configurations.create("fabricApi") {
+var latticeConfigurationApi = configurations.create("latticeApi") {
     baseConfiguration(this)
     attributes
         .attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_API))
-        .attribute(CommonTargetAttributes.TYPE, "fabric")
 }
 
-var fabricConfigurationRuntime = configurations.create("fabricRuntime") {
+var latticeConfigurationRuntime = configurations.create("latticeRuntime") {
     baseConfiguration(this)
     attributes
         .attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
-        .attribute(CommonTargetAttributes.TYPE, "fabric")
-}
-
-var neoforgeConfigurationApi = configurations.create("neoforgeApi") {
-    baseConfiguration(this)
-    attributes
-        .attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_API))
-        .attribute(CommonTargetAttributes.TYPE, "neoforge")
-}
-
-var neoforgeConfigurationRuntime = configurations.create("neoforgeRuntime") {
-    baseConfiguration(this)
-    attributes
-        .attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
-        .attribute(CommonTargetAttributes.TYPE, "neoforge")
 }
 
 val javaComponent = components.findByName("java") as AdhocComponentWithVariants
@@ -181,20 +170,11 @@ rootProject.configurations.forEach {
     } catch (ignored: Exception) {}
 }
 
-javaComponent.addVariantsFromConfiguration(fabricConfigurationApi) {
+javaComponent.addVariantsFromConfiguration(latticeConfigurationApi) {
     mapToMavenScope("runtime")
     mapToOptional()
 }
-javaComponent.addVariantsFromConfiguration(fabricConfigurationRuntime) {
-    mapToMavenScope("runtime")
-    mapToOptional()
-}
-
-javaComponent.addVariantsFromConfiguration(neoforgeConfigurationApi) {
-    mapToMavenScope("runtime")
-    mapToOptional()
-}
-javaComponent.addVariantsFromConfiguration(neoforgeConfigurationRuntime) {
+javaComponent.addVariantsFromConfiguration(latticeConfigurationRuntime) {
     mapToMavenScope("runtime")
     mapToOptional()
 }
@@ -204,7 +184,7 @@ mavenPublishing {
 
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
 
-    signAllPublications()
+    //signAllPublications()
 
     coordinates("com.moulberry", "lattice", version.toString())
 
