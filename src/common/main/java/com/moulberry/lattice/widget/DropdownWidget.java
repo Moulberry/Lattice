@@ -74,7 +74,7 @@ public abstract class DropdownWidget<T> extends Button implements WidgetExtraFun
     }
 
     private void updateMessage() {
-        this.setMessage(Component.translatable("options.generic_value", this.title, this.currentValue));
+        this.setMessage(Component.translatable("options.generic_value", this.title, this.currentValue.toString()));
     }
 
     @Override

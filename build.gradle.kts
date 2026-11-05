@@ -2,7 +2,7 @@ import earth.terrarium.cloche.api.target.CommonTarget
 import com.vanniktech.maven.publish.JavaLibrary
 import com.vanniktech.maven.publish.JavadocJar
 import com.vanniktech.maven.publish.SonatypeHost
-import earth.terrarium.cloche.api.attributes.TargetAttributes
+import earth.terrarium.cloche.api.attributes.CommonTargetAttributes
 
 plugins {
     id("earth.terrarium.cloche") version "0.18.8+beta-2"
@@ -34,8 +34,7 @@ dependencies {
     compileOnly("org.jetbrains:annotations:23.0.0")
 }
 
-var fabricJarOutputs = mutableListOf<Provider<out Jar>>()
-var forgeLikeJarOutputs = mutableListOf<Provider<out Jar>>()
+var jarOutputs = mutableListOf<Provider<out Jar>>()
 
 java {
     toolchain {
@@ -68,6 +67,9 @@ cloche {
         mixins.from("src/26.2/main/mixins/lattice262.mixins.json")
     }
 
+    val neoforgecommon = common("neoforgecommon")
+    val fabriccommon = common("fabriccommon")
+
     val commonMinecraftVersion: Attribute<String> = Attribute.of("com.moulberry.commonMinecraftVersion", String::class.java)
 
     fun createCommon(version: String): CommonTarget {
@@ -79,7 +81,7 @@ cloche {
         }
     }
 
-    fun create(version: String, fabricLoader: String) {
+    fun create(version: String, fabricLoader: String, neoforge: String) {
         val commonTarget = createCommon(version)
 
         val rawVersion = version.split("-")[0]
@@ -87,23 +89,41 @@ cloche {
             minecraftVersion = version
             loaderVersion = fabricLoader
 
-            dependsOn(commonTarget)
+            dependsOn(commonTarget, fabriccommon)
 
             includedClient()
 
-            fabricJarOutputs.add(finalJar)
+            jarOutputs.add(finalJar)
+        }
+
+        neoforge("neoforge:${rawVersion}") {
+            minecraftVersion = version
+            loaderVersion = neoforge
+
+            dependsOn(commonTarget, neoforgecommon)
+
+            jarOutputs.add(finalJar)
+
+            metadata {
+                modLoader = "javafml"
+                loaderVersion {
+                    start = "1"
+                    startInclusive = true
+                }
+            }
         }
     }
 
-    create("26.2", "0.19.3")
-    create("26.1", "0.18.4")
+    //create("26.3", "0.19.5", "26.3.0.101")
+    create("26.2", "0.19.3", "26.2.0.93")
+    create("26.1", "0.18.4", "26.1.0.19-beta")
 }
 
-tasks.register<Jar>("buildMergedFabric") {
+tasks.register<Jar>("buildMerged") {
     archiveBaseName.set("lattice")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
-    fabricJarOutputs.forEach { jarProvider ->
+    jarOutputs.forEach { jarProvider ->
         from(project.zipTree(jarProvider.get().archiveFile))
     }
 
@@ -112,9 +132,9 @@ tasks.register<Jar>("buildMergedFabric") {
     }
 }
 
-fun baseFabricConfiguration(configuration: Configuration) {
+fun baseConfiguration(configuration: Configuration) {
     configuration.outgoing.capability("com.moulberry:lattice:${rootProject.version}")
-    configuration.outgoing.artifact(tasks.named<Jar>("buildMergedFabric").get())
+    configuration.outgoing.artifact(tasks.named<Jar>("buildMerged").get())
 
     configuration.attributes.attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.LIBRARY))
     configuration.attributes.attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.EXTERNAL))
@@ -123,13 +143,31 @@ fun baseFabricConfiguration(configuration: Configuration) {
 }
 
 var fabricConfigurationApi = configurations.create("fabricApi") {
-    baseFabricConfiguration(this)
-    attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_API))
+    baseConfiguration(this)
+    attributes
+        .attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_API))
+        .attribute(CommonTargetAttributes.TYPE, "fabric")
 }
 
 var fabricConfigurationRuntime = configurations.create("fabricRuntime") {
-    baseFabricConfiguration(this)
-    attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+    baseConfiguration(this)
+    attributes
+        .attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+        .attribute(CommonTargetAttributes.TYPE, "fabric")
+}
+
+var neoforgeConfigurationApi = configurations.create("neoforgeApi") {
+    baseConfiguration(this)
+    attributes
+        .attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_API))
+        .attribute(CommonTargetAttributes.TYPE, "neoforge")
+}
+
+var neoforgeConfigurationRuntime = configurations.create("neoforgeRuntime") {
+    baseConfiguration(this)
+    attributes
+        .attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+        .attribute(CommonTargetAttributes.TYPE, "neoforge")
 }
 
 val javaComponent = components.findByName("java") as AdhocComponentWithVariants
@@ -148,6 +186,15 @@ javaComponent.addVariantsFromConfiguration(fabricConfigurationApi) {
     mapToOptional()
 }
 javaComponent.addVariantsFromConfiguration(fabricConfigurationRuntime) {
+    mapToMavenScope("runtime")
+    mapToOptional()
+}
+
+javaComponent.addVariantsFromConfiguration(neoforgeConfigurationApi) {
+    mapToMavenScope("runtime")
+    mapToOptional()
+}
+javaComponent.addVariantsFromConfiguration(neoforgeConfigurationRuntime) {
     mapToMavenScope("runtime")
     mapToOptional()
 }
